@@ -30,7 +30,7 @@ window.CONFIG = {
     merkez:  { ad: 'Merkez',        cost: null,                 hp: 1000, size: 2, tasPerSec: 1 },
     ev:      { ad: 'Ev',            cost: { tas: 50 },          hp: 150,  size: 1, eggEvery: 30, maxEggs: 2 },
     ocak:    { ad: 'Taş Ocağı',     cost: { tas: 60 },          hp: 150,  size: 1, tasPerSec: 2 },
-    kule:    { ad: 'Çekim Kulesi',  cost: { tas: 100, oz: 20 }, hp: 300,  size: 1, minDistFromMerkez: 15, ozPerWave: 10, pullChance: 0.7, landRadius: 3 },
+    kule:    { ad: 'Çekim Kulesi',  cost: { tas: 120, oz: 40 }, hp: 300,  size: 1, minDistFromMerkez: 15, ozPerWave: 10, pullChance: 0.7, landRadius: 3 }, // Denge: 20 Öz ile başlangıçta hemen kurulabiliyordu; 40 Öz ilk 2-3 dalganın kristalini ister -> 3-5. dakika
     karakol: { ad: 'Karakol',       cost: { tas: 80 },          hp: 250,  size: 1, capacity: 3, guardRadius: 6 },
     taret:   { ad: 'Taret',         cost: { tas: 70, oz: 10 },  hp: 200,  size: 1, range: 5, dps: 10 },
     lab:     { ad: 'Laboratuvar',   cost: { tas: 120, oz: 30 }, hp: 200,  size: 2, scientistBonus: 0.5 },
@@ -75,7 +75,8 @@ window.CONFIG = {
     kralice:   { hp: 300 },
     hostileTime: 30, huntSoldiers: 2, faintBelow: 0.3, faintTime: 45, aggroRadius: 6,
     roamWidth: 10, // toplayıcıların kraliçeden batıya (düzlüğe) doğru dolaşabildiği kare sayısı
-    chipTime: 6, chipTimeMin: 2, queenChipTime: 15, queenSpawnEvery: 40,
+    chipTime: 6, chipTimeMin: 2, queenSpawnEvery: 40,
+    queenChipTime: 20, // Denge: 15'ten 20'ye; bilimci yuvada daha uzun korunmalı, kraliçe bir sefer gerektirsin
     tasiyiciSpeedMul: 2,
   },
 
@@ -84,7 +85,7 @@ window.CONFIG = {
     { id: 'meteorKalkan', ad: 'Meteor Kalkanı',  cost: { oz: 40 },             time: 45, effect: 'Merkez çevresine (10 kare) meteor düşmez' },
     { id: 'kitinAgi',     ad: 'Kitin Ağı',       cost: { oz: 20, kitin: 3 },   time: 30, effect: 'Avlanan bireyler ölmez, bayılır' },
     { id: 'noroCip',      ad: 'Nöro-çip',        cost: { oz: 50, kitin: 5 },   time: 60, effect: 'Bayılmış bireyler çiplenebilir', requires: 'kitinAgi' },
-    { id: 'kraliceCipi',  ad: 'Kraliçe Çipi',    cost: { oz: 100, kitin: 10 }, time: 90, effect: 'Kraliçe çiplenebilir', requires: 'noroCip' },
+    { id: 'kraliceCipi',  ad: 'Kraliçe Çipi',    cost: { oz: 150, kitin: 12 }, time: 150, effect: 'Kraliçe çiplenebilir', requires: 'noroCip' }, // Denge: 100 Öz / 10 Kitin / 90 sn ile 8-10. dakikada alınabiliyordu; kraliçe geç oyunda (12+. dk) gelsin
   ],
   researchValues: { genisCekimPull: 0.85, kalkanRadius: 10 },
 

@@ -182,6 +182,8 @@
     m.lastHp = m.hp;
 
     if (m.state === 'fainted') {
+      // Bayılmışken meteor ya da patlama hasarıyla ölebilir
+      if (m.hp <= 0) { col.members = col.members.filter((x) => x !== m); return; }
       if (!m.reserved) m.faintT -= dt;
       if (m.faintT <= 0) { m.state = 'wander'; m.hp = m.maxHp * 0.5; m.lastHp = m.hp; }
       return;
