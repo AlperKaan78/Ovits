@@ -23,12 +23,12 @@ Ekran görüntüleri: three-settlement.png, three-isci.png, three-kralice.png, t
 
 ## Sınırlar
 
-Tam maç veya zafer dengesi doğrulanmadı: Kişi 1'in şehir/meteor modülleri hâlâ iskelet. Three.js girişinin ana index.html yerine alınması Kişi 1 ile birleştirme gerektirir; mevcut 2B giriş değiştirilmedi. Görseller özgün prosedürel modellerdir; sonuç stilize gerçekçi oyun grafiğidir, fotogerçekçi tarama değildir.
+Kişi 1'in şehir ve meteor davranışları bc5bc7f commitinden alınıp yukarıdaki testler yeniden geçirildi. Tam maç veya zafer dengesi henüz doğrulanmadı. Three.js girişinin ana index.html yerine alınması Kişi 1 ile birleştirme gerektirir; mevcut 2B giriş değiştirilmedi. Görseller özgün prosedürel modellerdir; sonuç stilize gerçekçi oyun grafiğidir, fotogerçekçi tarama değildir.
 
 ## Ekibe aktarılacak notlar
 
-- Kişi 1 / src/city.js: gerçek feed/sendSoldier, yerleştirme, savaş ve taşıma davranışları geldiğinde assets/game3d.html üzerinden test edilebilir.
-- Kişi 1 / src/meteors.js: meteor davranışları tamamlandığında düşüş/uyarı animasyonlarını 3B adaptöre bağlamak gerekir; model fabrikasında meteor ve kristal var.
+- Kişi 1 / src/city.js: güncel feed/sendSoldier, yerleştirme, savaş ve taşıma davranışları assets/game3d.html üzerinden yüklenir; tam maç testi bekliyor.
+- Kişi 1 / src/meteors.js: meteor simülasyonu alındı; düşüş/uyarı animasyonları 3B adaptöre ayrıca bağlanmalıdır; model fabrikasında meteor ve kristal var.
 - Kişi 2 / src/colonies.js: member seçim zarfı, canChip/tryChip ve research.ok UI'de desteklenir; koloni/sarmaşık veri şemasıyla 3B senkronizasyon çalışır.
 
 Bu notlar rapordur; ekip üyelerine doğrudan mesaj gönderilmedi.

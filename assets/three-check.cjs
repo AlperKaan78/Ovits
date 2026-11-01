@@ -1,9 +1,11 @@
 const {chromium}=require('playwright');
 const path=require('node:path'),assert=require('node:assert/strict');
+process.env.PREVIEW_PORT=process.env.PREVIEW_PORT||'4174';
+const base='http://127.0.0.1:'+process.env.PREVIEW_PORT;
 const server=require('./serve-preview.cjs');
 (async()=>{const browser=await chromium.launch({channel:'msedge',headless:true,args:['--enable-unsafe-swiftshader']});try{
 const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
-await page.goto('http://127.0.0.1:4173/assets/three-preview.html');await page.waitForFunction(()=>window.art3dState?.frames>3,{},{timeout:60000});
+await page.goto(base+'/assets/three-preview.html');await page.waitForFunction(()=>window.art3dState?.frames>3,{},{timeout:60000});
 await page.screenshot({path:path.join(__dirname,'three-settlement.png')});console.log('Scene:',await page.evaluate(()=>window.art3dState));
 for(const type of ['isci','kralice','cekimKulesi','ev','akinci','sarmasik','meteor','laboratuvar','taret','karakol','tasOcagi','bilimci','asker','kristal','yavru','yumurta','koloni']){await page.selectOption('select',type);await page.waitForFunction(t=>window.art3dState.mode===t,type);if(['isci','kralice','cekimKulesi'].includes(type)){await page.waitForTimeout(250);await page.screenshot({path:path.join(__dirname,'three-'+type+'.png')});}}
 await page.locator('#rotate').click();assert.equal(await page.locator('#rotate').textContent(),'Dönüşü durdur');
@@ -17,7 +19,7 @@ const integration=await page.evaluate(async()=>{
   view.render(G);const first=view.modelCount;worker.type='asker';G.crystals[0].amount=0;view.render(G);const changed=view.modelCount;
   G.units=[];view.render(G);const removed=view.modelCount;canvas.click();view.dispose();canvas.remove();return {first,changed,removed,clicks};
 });assert.deepEqual(integration,{first:3,changed:2,removed:1,clicks:0});assert.deepEqual(errors,[]);console.log('PASS: G adapter spawn, role change, depleted crystal, removal, UI click interception and dispose.');
-await page.setViewportSize({width:1440,height:1000});await page.goto('http://127.0.0.1:4173/assets/game3d.html');await page.waitForFunction(()=>window.game3d?.view.modelCount>4);await page.waitForTimeout(200);await page.screenshot({path:path.join(__dirname,'three-game.png')});
+await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/assets/game3d.html');await page.waitForFunction(()=>window.game3d?.view.modelCount>4);await page.waitForTimeout(200);await page.screenshot({path:path.join(__dirname,'three-game.png')});
 assert.equal(await page.locator('#error').isVisible(),false);
 const result=await page.evaluate(()=>{const G=game3d.G;for(let i=0;i<1801;i++){G.time+=.1;for(const m of Game.modules)m.update?.(G,.1);G.units=G.units.filter(u=>u.hp>0);G.enemies=G.enemies.filter(e=>e.hp>0);}game3d.view.render(G);return {enemies:G.enemies.length,finite:G.enemies.every(e=>Number.isFinite(e.x)&&Number.isFinite(e.y)),resource:Number.isFinite(G.res.oz)};});assert.ok(result.enemies>=3);assert.equal(result.finite,true);assert.equal(result.resource,true);assert.deepEqual(errors,[]);console.log('PASS: real repository CONFIG/core/colonies/research, 180-second simulation and raid in 3D launcher.');
 }finally{await browser.close();server.close();}})().catch(e=>{console.error(e);server.close();process.exitCode=1});

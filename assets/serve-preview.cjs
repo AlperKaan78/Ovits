@@ -4,4 +4,4 @@ const root=path.resolve(__dirname,'..'),types={'.html':'text/html; charset=utf-8
 module.exports=http.createServer((req,res)=>{let file;try{file=path.resolve(root,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname));}catch{res.writeHead(400).end();return;}
 if(file!==root&&!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}if(file===root)file=path.join(root,'assets','three-preview.html');
 fs.readFile(file,(error,data)=>{if(error){res.writeHead(404).end('Not found');return;}res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','Cache-Control':'no-store'}).end(data);});
-}).listen(4173,'127.0.0.1',()=>console.log('Three.js preview: http://127.0.0.1:4173/assets/three-preview.html'));
+}).listen(Number(process.env.PREVIEW_PORT)||4173,'127.0.0.1',()=>console.log('Three.js preview: http://127.0.0.1:'+(Number(process.env.PREVIEW_PORT)||4173)+'/assets/three-preview.html'));

@@ -12,4 +12,4 @@ Three.js dönüşümü kullanıcının açık isteğiyle yapılmıştır. 2B ind
 
 ## Kalan ekip işleri
 
-Kişi 1'in city.js ve meteors.js dosyalarında üretim dışında pek çok davranış hâlâ TODO durumundadır. Bina yerleştirme, besleme, taşıma, asker saldırısı ve meteor simülasyonu bu ekip parçasında tamamlanınca 3B giriş tekrar baştan sona denenmelidir. `index.html`, `src/core.js`, `src/main.js`, `src/city.js`, `src/meteors.js`, `data/config.js` ve Kişi 2 modüllerine yerel değişiklik yapılmadı; depodan gelen sürümleri kullanılır.
+Kişi 1'in şehir ve meteor davranışları bc5bc7f commitinden alındı; bu sürümle 11 mantık testi ve 180 saniyelik tarayıcı simülasyonu geçti. Tam maç ve zafer dengesi henüz doğrulanmadı. `index.html`, `src/core.js`, `src/main.js`, `src/city.js`, `src/meteors.js`, `data/config.js` ve Kişi 2 modüllerine yerel değişiklik yapılmadı; depodan gelen sürümleri kullanılır.
