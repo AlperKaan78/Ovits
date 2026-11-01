@@ -90,26 +90,36 @@ function tower(g,type){const m=materials();
     const light=new THREE.PointLight('#b57dff',9,9,2);light.position.y=4;g.add(light);
   }
 }
-function ovik(g,type){const m=materials(),suit=type==='bilimci'?m.blue:type==='asker'?m.dark:m.cloth;
-  // Human anatomy, articulated boots, fitted suit and separately modelled equipment.
+function ovik(g,type,gender='male'){
+  const m=materials(),female=gender==='female';
+  const gold=new THREE.MeshPhysicalMaterial({color:'#c7a345',metalness:.88,roughness:.25,clearcoat:.7});
+  const hair=new THREE.MeshStandardMaterial({color:'#19140f',roughness:.65});
+  const suit=new THREE.MeshStandardMaterial({color:type==='bilimci'?'#d7d4c6':type==='asker'?'#353b2c':'#63513a',map:m.cloth.map,roughness:.92});
+  const limbs=[];
+  // Six articulated arms and a segmented golden carapace match the supplied Ovik references.
   for(const side of [-1,1]){
-    const x=side*.16;
-    orb(g,x,.12,.09,.13,.12,.23,m.dark);rod(g,[x,.2,0],[x,.62,-.015],.115,suit,.105);orb(g,x,.63,0,.115,.115,.11,m.metal);rod(g,[x,.67,0],[x,.98,0],.13,suit,.14);
-    orb(g,side*.28,1.42,0,.11,.13,.12,suit);rod(g,[side*.3,1.39,0],[side*.36,1.09,.03],.08,suit);orb(g,side*.36,1.05,.05,.075,.09,.075,m.dark);rod(g,[side*.36,1.04,.05],[side*.38,.87,.17],.07,suit);orb(g,side*.38,.85,.18,.07,.09,.07,m.dark);
-    box(g,.11,.16,.07,m.cloth,side*.21,1.02,.15);box(g,.12,.15,.08,m.dark,x,.69,.11);rod(g,[side*.22,.75,-.015],[side*.22,.9,-.015],.012,m.brass);
+    const leg=new THREE.Group();leg.position.set(side*.15,.91,0);g.add(leg);limbs.push({node:leg,phase:side,leg:true});
+    rod(leg,[0,0,0],[0,-.42,0],.115,suit,.135);orb(leg,0,-.43,0,.12,.12,.11,gold);rod(leg,[0,-.45,0],[0,-.75,.015],.1,gold,.08);orb(leg,0,-.82,.09,.13,.12,.22,m.dark);
+    for(let row=0;row<3;row++){
+      const arm=new THREE.Group();arm.position.set(side*(.24-row*.025),1.43-row*.21,-row*.045);g.add(arm);limbs.push({node:arm,phase:side*(row%2?-1:1),leg:false});
+      const elbow=[side*.17,-.25,.02],hand=[side*(.22+row*.05),-.47,.14];
+      orb(arm,0,0,0,.115,.13,.12,gold);rod(arm,[0,0,0],elbow,.085,gold,.065);orb(arm,...elbow,.075,.075,.075,m.dark);rod(arm,elbow,hand,.065,gold,.048);orb(arm,...hand,.07,.085,.045,gold);
+      for(let j=0;j<3;j++)rod(arm,[hand[0]+(j-1)*.027,hand[1]-.04,hand[2]],[hand[0]+(j-1)*.03,hand[1]-.13,hand[2]+.025],.012,gold);
+    }
   }
-  orb(g,0,1.21,0,.23,.33,.15,suit);box(g,.43,.07,.3,m.dark,0,.99,0);box(g,.065,.055,.04,m.brass,0,.99,.16);
-  rod(g,[0,1.47,0],[0,1.58,0],.085,m.skin);orb(g,0,1.73,0,.16,.205,.155,m.skin);
-  orb(g,0,1.81,-.02,.174,.17,.16,m.metal);
-  // Brow, nose, ears, visor and respirator keep the silhouette readable at RTS scale.
-  orb(g,0,1.74,.144,.14,.067,.035,m.glass);box(g,.12,.075,.08,m.dark,0,1.65,.16);
-  for(const side of [-1,1]){rod(g,[side*.14,1.47,.12],[side*.14,1.08,.15],.019,m.dark);box(g,.095,.14,.05,m.cloth,side*.09,1.23,.16);rod(g,[side*.125,1.56,.07],[side*.125,1.63,.14],.018,m.brass);}
-  box(g,.08,.075,.03,m.glass,-.075,1.37,.175);
-  for(const x of [-.17,.17])orb(g,x,1.73,0,.035,.065,.035,m.skin);
-  box(g,.36,.44,.16,m.dark,0,1.24,-.2);rod(g,[-.17,1.46,-.13],[-.17,1.09,.17],.024,m.brass);
-  if(type==='isci'){rod(g,[.4,.56,.18],[.4,1.28,.18],.025,m.brass);box(g,.4,.07,.085,m.metal,.4,1.27,.18);}
-  if(type==='asker'){box(g,.4,.3,.1,m.metal,0,1.34,.15);box(g,.09,.13,.66,m.dark,.4,.95,.4);rod(g,[.4,.97,.6],[.4,.97,.95],.035,m.metal);}
-  if(type==='bilimci'){box(g,.23,.06,.32,m.glass,.4,.89,.3);orb(g,0,1.28,-.35,.105,.22,.1,m.brass);}
+  orb(g,0,1.18,0,female?.205:.245,.33,.145,suit);box(g,.4,.065,.3,m.dark,0,.97,0);box(g,.065,.05,.035,gold,0,.97,.16);
+  for(let i=0;i<5;i++)orb(g,0,1.12+i*.08,-.13,.26-i*.012,.1,.13,gold);
+  for(const side of [-1,1]){rod(g,[side*.15,1.45,.12],[side*.14,1.01,.15],.022,m.dark);box(g,.11,.15,.06,suit,side*.19,1.04,.15);}
+  rod(g,[0,1.47,0],[0,1.58,0],.07,gold);orb(g,0,1.72,.015,female?.145:.16,.19,.14,gold);
+  orb(g,0,1.84,-.025,.165,.115,.15,hair);
+  for(const side of [-1,1]){orb(g,side*.067,1.75,.139,.039,.018,.013,m.lamp);rod(g,[side*.03,1.79,.135],[side*.11,1.79,.115],.014,hair);rod(g,[side*.14,1.78,0],[side*.23,1.84,-.07],.025,gold);}
+  orb(g,0,1.705,.151,.025,.035,.03,gold);rod(g,[-.047,1.65,.13],[.047,1.65,.13],.008,m.dark);
+  if(female){for(let i=0;i<13;i++)orb(g,Math.sin(i*.9)*.07,1.77-i*.065,-.14-i*.012,.072,.065,.06,hair);}
+  else for(let i=0;i<7;i++)rod(g,[-.13+i*.04,1.85,.04],[-.08+i*.04,1.96,-.12],.035,hair,.01);
+  if(type==='bilimci'){box(g,.39,.48,.06,suit,0,1.21,.15);box(g,.23,.035,.3,m.dark,.47,.79,.3);orb(g,-.46,1.22,.17,.06,.12,.06,m.glass);}
+  if(type==='isci'){rod(g,[.5,.54,.19],[.5,1.18,.19],.027,m.brass);box(g,.38,.065,.08,m.metal,.5,1.18,.19);}
+  if(type==='asker'){box(g,.4,.32,.085,m.dark,0,1.3,.17);box(g,.1,.13,.64,m.dark,.44,1.06,.32);rod(g,[.44,1.07,.5],[.44,1.07,.9],.03,m.metal);box(g,.07,.1,.14,m.glass,.44,1.17,.36);}
+  g.userData.limbs=limbs;
 }
 function colony(g,queen){const m=materials(),s=queen?1.5:1;g.scale.setScalar(s);
   orb(g,0,.87,-.3,.53,.43,.75,m.shell);orb(g,0,.92,.4,.38,.31,.42,m.shell);orb(g,0,.88,.8,.27,.23,.28,m.dark);
@@ -128,18 +138,21 @@ function vine(g){const m=materials();
     for(let i=1;i<7;i++){const p=points[i],side=i%2?1:-1;const leaf=orb(g,p.x+side*.21,p.y+.03,p.z,.28,.035,.11,m.leaf);leaf.rotation.z=side*.3;leaf.rotation.y=side*.45;}
   }
 }
-export function createModel(type){materials();const g=new THREE.Group();g.userData.kind=type;
+export function createModel(type,gender){materials();const g=new THREE.Group();g.userData.kind=type;
   if(['merkez','ev','karakol','laboratuvar'].includes(type))building(g,type);
   else if(['cekimKulesi','taret'].includes(type))tower(g,type);
-  else if(['isci','asker','bilimci','yavru'].includes(type)){ovik(g,type);if(type==='yavru')g.scale.setScalar(.6);}
+  else if(['isci','asker','bilimci','yavru'].includes(type)){ovik(g,type,gender);if(type==='yavru')g.scale.setScalar(.6);}
+  else if(type==='hastane'){building(g,'laboratuvar');box(g,.6,.12,.09,mats.energy,0,1.8,1.05);box(g,.12,.6,.09,mats.energy,0,1.8,1.05);}
+  else if(type==='duvar'){for(let i=0;i<3;i++)stoneBlock(g,1.5,.4,.55,0,.2+i*.4,0);}
+  else if(type==='gozetleme'){building(g,'karakol');tower(g,'taret');}
   else if(type==='koloni'||type==='kralice')colony(g,type==='kralice');
   else if(type==='sarmasik')vine(g);
   else if(type==='kristal'){gem(g,0,.8,0,.65);gem(g,.5,.45,.2,.35);gem(g,-.4,.4,-.2,.3);}
   else if(type==='yumurta'){orb(g,0,.4,0,.28,.4,.28,mats.stone);ring(g,.28,.02,mats.brass,0,.3,0);}
   else if(type==='akinci'){ovik(g,'asker');const cloak=mesh(g,new THREE.ConeGeometry(.4,.95,24,1,true),mats.cloth,0,1.06,-.09);cloak.rotation.x=-.13;orb(g,0,1.79,-.04,.22,.23,.2,mats.cloth);box(g,.23,.035,.08,mats.lamp,0,1.75,.18);}
-  else if(type==='tasOcagi'||type==='meteor'){
+  else if(type==='tasOcagi'||type==='meteor'||type==='stoneDeposit'){
     for(let i=0;i<7;i++){const o=mesh(g,new THREE.DodecahedronGeometry(.5+random()*.6,1),mats.darkStone,(random()-.5)*2,.3,(random()-.5)*1.8);o.scale.set(1,.55+random(),1);o.rotation.set(random(),random(),random());}
-    if(type==='meteor')gem(g,0,.9,0,.65);else{rod(g,[-.8,.2,.6],[-.8,2,.6],.06,mats.metal);rod(g,[-.8,2,.6],[.8,2,.6],.06,mats.metal);rod(g,[.8,2,.6],[.8,.4,.6],.06,mats.metal);}
+    if(type==='meteor')gem(g,0,.9,0,.65);else if(type==='tasOcagi'){rod(g,[-.8,.2,.6],[-.8,2,.6],.06,mats.metal);rod(g,[-.8,2,.6],[.8,2,.6],.06,mats.metal);rod(g,[.8,2,.6],[.8,.4,.6],.06,mats.metal);}
   }
   return g;
 }

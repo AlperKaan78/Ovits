@@ -12,6 +12,7 @@
   // Laboratuvarda çalışan bilimci sayısı (city.js bilimciye state = 'lab' yazar)
   Research.scientists = (G) => G.units.filter((u) => u.kind === 'bilimci' && u.state === 'lab' && u.hp > 0).length;
   Research.speed = (G) => 1 + G.cfg.buildings.lab.scientistBonus * Research.scientists(G);
+  Research.cost = (G,r) => Object.fromEntries(Object.entries(r.cost).map(([k,v])=>[k,Math.ceil(v*Math.max(.5,1-.05*Research.scientists(G)))]));
 
   // Kuyruğa eklenebilecek araştırmalar (arayüz listeler). Kilitli olanlar da döner, nedeniyle birlikte.
   Research.available = function (G) {
@@ -21,8 +22,8 @@
         let reason = null;
         if (!lab(G)) reason = 'Laboratuvar gerekli';
         else if (r.requires && !inPipeline(G, r.requires)) reason = 'Önce: ' + def(G, r.requires).ad;
-        else if (!Game.canAfford(G, r.cost)) reason = 'Yetersiz kaynak';
-        return { id: r.id, ad: r.ad, dal: r.dal, cost: r.cost, costText: Game.costText(r.cost), time: r.time, effect: r.effect, ok: !reason, reason };
+        else if (!Game.canAfford(G, Research.cost(G,r))) reason = 'Yetersiz kaynak';
+        return { id: r.id, ad: r.ad, dal: r.dal, cost: Research.cost(G,r), costText: Game.costText(Research.cost(G,r)), time: r.time, effect: r.effect, ok: !reason, reason };
       });
   };
 
@@ -47,7 +48,9 @@
     else if (R.queue.includes(id)) { R.queue.splice(R.queue.indexOf(id), 1); rate = 1; }
     else return false;
     const back = {};
-    Object.keys(r.cost).forEach((k) => (back[k] = Math.floor(r.cost[k] * rate)));
+    const paid=G.research.paid?.[id]||r.cost;
+    Object.keys(paid).forEach((k) => (back[k] = Math.floor(paid[k] * rate)));
+    if(G.research.paid)delete G.research.paid[id];
     Game.gain(G, back);
     Game.msg(G, `${r.ad} iptal edildi (${Game.costText(back)} iade).`, '#e67e22');
     G.cfg.research.filter((x) => x.requires === id).forEach((x) => Research.cancel(G, x.id));
@@ -59,7 +62,9 @@
     if (!r || inPipeline(G, id)) return false;
     if (!lab(G)) { Game.msg(G, 'Araştırma için önce Laboratuvar kur.', '#e67e22'); return false; }
     if (r.requires && !inPipeline(G, r.requires)) { Game.msg(G, `${r.ad} için önce ${def(G, r.requires).ad} gerekli.`, '#e67e22'); return false; }
-    if (!Game.pay(G, r.cost)) { Game.msg(G, `${r.ad}: ${Game.costText(r.cost)} gerekli.`, '#e67e22'); return false; }
+    const cost=Research.cost(G,r);
+    if (!Game.pay(G, cost)) { Game.msg(G, `${r.ad}: ${Game.costText(cost)} gerekli.`, '#e67e22'); return false; }
+    (G.research.paid ||= {})[id]={...cost};
     G.research.queue.push(id);
     Game.msg(G, `${r.ad} araştırma sırasına eklendi.`, '#2e86de');
     return true;

@@ -1,0 +1,4 @@
+// Object graph transport preserves order targets, carried crystals and cyclic references.
+function encode(value){const seen=new Map(),nodes=[];function ref(v){if(v===null||typeof v!=='object')return typeof v==='function'?null:v;if(seen.has(v))return {$:seen.get(v)};const i=nodes.length;seen.set(v,i);const out=Array.isArray(v)||ArrayBuffer.isView(v)?[]:{};nodes.push(out);for(const [k,x]of Object.entries(v)){if(typeof x!=='function')out[k]=ref(x);}return {$:i};}return JSON.stringify({root:ref(value),nodes});}
+function decode(text){const {root,nodes}=typeof text==='string'?JSON.parse(text):text;const out=nodes.map(n=>Array.isArray(n)?[]:{});const val=v=>v&&typeof v==='object'&&'$'in v?out[v.$]:v;nodes.forEach((n,i)=>{for(const [k,v]of Object.entries(n))out[i][k]=val(v);});return val(root);}
+module.exports={encode,decode};

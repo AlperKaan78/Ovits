@@ -71,3 +71,17 @@ Sarmaşık hasadı hâlâ CONFIG.vines.pruneCost öder; kökler elle kesilmez. C
 assets/tasks3d.js alan işlerini sınırlar ve City.command'a bağlar. Bilimcinin laboratuvar emrinin genel hareket emrine dönüşmemesi adaptörde güvenceye alındı. assets/audio3d.js tamamen sentezlenmiş ses kullanır; hazır ses dosyası yoktur. Ses kullanıcı tıklaması/tuşuyla açılır ve HUD'dan kapatılabilir.
 
 Oynanabilir görev ızgarası aynı kaldı; görünür çevre 640×640 dünya birimine uzatıldı. Uzak kaya/ağaçlar instancing ve sisle kesintisiz ufuk izlenimi verir; bunlar ayrı oyun kareleri değildir. Kamera daha uzak yakınlaşma/uzaklaşma ve dış çevreyi görme aralığı sunar. Görev alanı dışına tıklama artık açıklama verir.
+
+## Medeniyet ve halk güncellemesi — 1 Kasım 2026
+
+Güncel ana komut: `node --test assets/civilization.test.cjs assets/gameplay.test.cjs assets/role3.test.cjs` — **38/38 başarılı**.
+
+Yeni kapsam: dengeli cinsiyet ataması, taş yatağı zorunluluğu, inşaat emri kilidi, sarmaşık alanında bekleme/yeniden hasat, çalışan işçiyle taş üretimi, ücretli tamir, merkeze yük teslim edip durma, hastane iyileştirmesi, bilimciyle ev kapasitesi geliştirme, birim seviyesi, indirimli araştırma ücret/iadesi, duvar çevresinden yol bulma ve nesne kimliğini koruyan ağ aktarımı. İki medeniyet için sunucu tarafında kaynak/komut sahipliği ve ortak dünyada yapı görünürlüğü ayrı test edilir. Önceki 20 dakika stres ve nüfus/meteor/araştırma testleri de geçer.
+
+`assets/civilization-check.cjs` güncel gerçek tarayıcı regresyonudur; `commands-check.cjs` ve `demo-check.cjs` uyumluluk girişleri bunu çağırır. Chromium Headless Shell ile meslek filtreleri/grup seçimi, dur/otomatik toplama, hareket ve sürükleyerek hasat, gerçek meteor ses tetiklenmesi, altı PNG portresi, bayrak değiştirme, 720p/1080p inşa düzeni ve karakter galerisi doğrulanır. İki tarayıcı oturumunda farklı medeniyetler, ayrı kaynak harcaması, karşılıklı bina görünürlüğü, başka oyuncu birimine emir reddi ve yenileme sonrası tekrar bağlanma kontrol edilir. Yazılımsal GPU maliyetini azaltmak için LAN senaryosunda her istemcinin ilk gerçek 3B karesinden sonra yalnız GPU çizimi kapatılır; simülasyon, ağ, sahne nesneleri ve HUD çalışmaya devam eder. Bu test fiziksel iki farklı Wi-Fi cihazı veya gerçek ekran kartı performans ölçümü değildir.
+
+`demo-civilization.png` ile yerleşim, `people-preview.png` ile altı karakter varyantı görsel olarak incelendi. 3B karakterler referansların prosedürel oyun yorumudur; referans kalitesinde elle hazırlanmış yüksek ayrıntılı karakter modelleri değildir. Kullanıcının PNG'leri portre olarak doğrudan kullanılır.
+
+Bu turda kullanıcının geniş kapsamlı mekanik talebi doğrultusunda ortak `src/city.js`, `src/research.js`, `src/colonies.js`, `src/enemies.js` ve `src/meteors.js` dosyalarına da sınırlı entegrasyon yapıldı: yapı/birim geliştirmeleri, haricî görev desteği, indirimli gerçek bedel iadeleri ve LAN kaynak/araştırma sahipliği. Yeni 3B mekanikler `civilization.js` ile etkinleşir; eski `index.html` bunları yüklemez. Sürekli hasat davranışı 3B girişe özgüdür.
+
+LAN sınırları: 4 oyunculu yerel oda, PvP yok, hesap/kalıcı kayıt yok, sunucu kapanınca sıfırlanır. Kullanım `assets/LAN-README.md` içinde. Bu sürümün uzun süreli çok oyunculu denge ayarı ayrıca oynanış gerektirir.

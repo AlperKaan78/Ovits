@@ -21,3 +21,9 @@ Three.js dönüşümü kullanıcının açık isteğiyle yapılmıştır. 2B ind
 ## Kalan ekip işleri
 
 Kişi 1'in şehir ve meteor davranışlarıyla 25 mantık/sistem testi, 180 saniyelik tarayıcı simülasyonu, doğal Öz zaferi, bilimciyle kraliçe zaferi ve 1200 saniyelik kontrollü stres testi geçti. Gerçek etkileşimli demoda 3B inşa, seçim, besleme, kısayollar, meteor uyarısı/çarpması, sonuç ve yeniden başlatma kontrol edildi. Bütün olası maçlar denenmedi; denge notları assets/TEST-REPORT.md'dedir. `index.html`, `src/core.js`, `src/main.js`, `src/city.js`, `src/meteors.js`, `data/config.js` ve Kişi 2 modüllerine yerel değişiklik yapılmadı; depodan gelen sürümleri kullanılır.
+
+## Halk, kalıcı görevler ve LAN
+
+`assets/civilization.js` ortak City API'sini 3B girişte genişletir; `city.update` için `externalOrder` alanı, `level` çarpanları ve ev `data.capacity` alanı eklendi. İnşaat işçileri emir kilidi taşır. `deposits` sınırlı taş yataklarıdır; `hastane`, `duvar`, `gozetleme` yapı tanımları bu modülde eklenir. `research.paid` gerçek ödenen araştırma bedellerini saklar. `G.civilizationAccount(id)` yalnız LAN sunucusunda bulunur; ortak ekonomi/araştırma kazançları ilgili medeniyete yönlenir, tek oyunculuda eski G üzerinden çalışır.
+
+`lan-server.cjs` tek ortak tarafsız dünya ve medeniyet başına City/Research güncellemesi yürütür. Birimler/binalar `civ` ve `flag` taşır. İstemcinin kendi dizileriyle diğer medeniyetleri gösteren `visitors` ayrıdır; simülasyon sunucuya aittir. Ağ durumundaki hedef/yük nesneleri graph codec ile korunur, istemci varlıkları id'leriyle yerinde günceller. İstemci para/HP/durum gönderemez; yalnız izinli emirler gönderir. LAN başlatma/kullanım notları `LAN-README.md` içindedir.

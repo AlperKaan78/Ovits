@@ -164,8 +164,8 @@
   }
 
   // ---------- Davranış ----------
-  function countKill(G, col) {
-    G.res.kitin += 1; col.kills += 1;
+  function countKill(G, col, member) {
+    (G.civilizationAccount?.(member?.killerCiv)||G).res.kitin += 1; col.kills += 1;
     if (!col.overHunted && col.kills >= cc(G).overHunt.kills) {
       col.overHunted = true; anger(G, col);
       Game.msg(G, `${col.ad} kolonisi aşırı avlandı! Artık çok daha uzun süre öfkeli kalacak.`, '#e74c3c');
@@ -174,15 +174,15 @@
 
   function onDown(G, col, m) {
     // Can bitti ya da bayılma eşiğinin altına indi
-    if (G.research.done.kitinAgi && m.role !== 'kralice') {
+    if ((G.civilizationAccount?.(m.killerCiv)||G).research.done.kitinAgi && m.role !== 'kralice') {
       m.state = 'fainted'; m.hp = Math.max(1, m.hp); m.faintT = cc(G).faintTime;
       m.hunted = false; m.attackTarget = null;
-      countKill(G, col);
+      countKill(G, col, m);
       Game.msg(G, `Bir birey bayıldı (+1 Kitin). ${G.research.done.noroCip ? 'Tıklayıp çipleyebilirsin.' : ''}`, '#9be7a1');
     } else {
       m.hp = 0;
       col.members = col.members.filter((x) => x !== m);
-      countKill(G, col);
+      countKill(G, col, m);
       Game.msg(G, '+1 Kitin. Bu koloniyi çiplemek artık daha kolay.', '#9be7a1');
     }
   }
@@ -193,7 +193,7 @@
 
     // Bayılma / ölüm kontrolü
     if (m.state !== 'fainted' && m.state !== 'chipped' && m.role !== 'kralice') {
-      const faintLine = G.research.done.kitinAgi ? m.maxHp * c.faintBelow : 0;
+      const faintLine = (G.civilizationAccount?.(m.killerCiv)||G).research.done.kitinAgi ? m.maxHp * c.faintBelow : 0;
       if (m.hp <= faintLine) { onDown(G, col, m); return; }
     }
     if (m.role === 'kralice' && m.hp <= 0) m.hp = 1; // kraliçe öldürülemez, yalnızca çiplenir

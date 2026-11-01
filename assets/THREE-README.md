@@ -4,7 +4,7 @@
 
 Depo kökünde `node assets/serve-preview.cjs` çalıştırın; tarayıcıda http://127.0.0.1:4173/assets/three-preview.html açın. Three.js ES modülleri nedeniyle çift tıklamayla file:// açılışı yerine yerel sunucu gerekir. İnternet veya npm kurulumu gerekmez; Three.js r180 yerelde sabitlenmiştir. Sunucu yalnızca 127.0.0.1 üzerinde dinler.
 
-Oynanabilir giriş: http://127.0.0.1:4173/assets/game3d.html . Soldaki listeden veya haritadan birim seçin; sağdaki görev düğmesiyle hedefe sol tıklayın ya da doğrudan hedefe sağ tıklayın. İşçi için “Sarmaşık biç / topla” seçip alanı sürükleyin. Sağ üst mini harita kamerayı taşır. WASD/oklar ve tekerlek kamerayı kontrol eder. Ses ilk etkileşimde etkinleşir; HUD'dan kapanır.
+Oynanabilir giriş: http://127.0.0.1:4173/assets/game3d.html . Soldaki listeden veya haritadan birim seçin; sağdaki görev düğmesiyle hedefe sol tıklayın ya da doğrudan hedefe sağ tıklayın. İşçi için “Sarmaşık biç / topla” seçip alanı sürükleyin. Sol alt mini harita kamerayı taşır. WASD/oklar ve tekerlek kamerayı kontrol eder. Ses ilk etkileşimde etkinleşir; HUD'dan kapanır.
 
 ## Görsel içerik
 
@@ -42,3 +42,7 @@ Adaptör buildings, units (kind), enemies, crystals (oz), colonies.members ve ma
 Güncel toplam 29 Node testi vardır. `node assets/commands-check.cjs` ayrı 4176 portunda üç birim rolünün emirlerini, alan hasadını/kaynakları, mini haritayı ve meteor sesini sınar. Bu test varsayılan Playwright Chromium Headless Shell'i kullanır; yerel test tarayıcısının konumu PLAYWRIGHT_BROWSERS_PATH ile verilebilir. Önceki Edge/Chrome profil sorunlarında ayrı test Chromium'u tercih edilmiştir.
 
 Statik dünya materyale göre birleştirildi: ilk tarayıcı ölçümünde 2903 olan sahne çizim çağrısı 39'a düştü. Bu sayı FPS ölçümü değildir ve donanım performans garantisi vermez. Test görüntüleri `three-settlement.png`, `three-isci.png`, `three-kralice.png`, `three-cekimKulesi.png`, `three-mobile.png`.
+
+## Medeniyet güncellemesi
+
+Altı kullanıcı referanslı kadın/erkek Ovik portresi ve altı kollu altın kabuklu 3B karakterler eklendi. Yeni meslek filtreleri, sürekli hasat, dur/merkeze dön, hastane, tamir, seviye geliştirmeleri, taş yatakları, duvar ve savunma kulesi için `LAN-README.md` dosyasına bakın. Aynı Wi-Fi sunucusu `node assets/lan-server.cjs` ile başlar. Karakter karşılaştırması `assets/people-preview.html` girişindedir.

@@ -127,7 +127,7 @@
     if (b.data.eggT < d.eggEvery) return;
     b.data.eggT = 0;
     const waiting = G.units.filter((u) => u.home === b.id && (u.kind === 'yumurta' || (u.kind === 'yavru' && !u.food))).length;
-    if (waiting >= d.maxEggs) return;
+    if (waiting >= (b.data.capacity || d.maxEggs)) return;
     const p = spotNear(b);
     Game.addUnit(G, { kind: 'yumurta', owner: 'player', x: p.x, y: p.y, hp: G.cfg.population.eggHp, home: b.id, t: G.cfg.population.hatchTime });
   }
@@ -225,7 +225,7 @@
       if (Game.dist(u.x, u.y, c.x, c.y) > b.size / 2 + 0.75) { u.state = 'toBuild'; Game.moveTo(u, c.x, c.y, sp, dt); return true; }
       const d = G.cfg.buildings[b.type];
       u.state = 'build'; u.step = (u.step || 0) + dt * 10;
-      b.progress += dt;
+      b.progress += dt * (1 + ((u.level || 1) - 1) * .2);
       b.hp = Math.min(b.maxHp, b.hp + (b.maxHp * 0.9 * dt) / d.buildTime);
       if (b.progress >= d.buildTime) finishBuilding(G, b);
       return true;
@@ -329,7 +329,9 @@
     return null;
   }
   function fire(G, from, tgt, dps, dt, color) {
-    tgt.hp -= dps * dt;
+    tgt.hp -= dps * (1 + ((from.level || 1) - 1) * .2) * dt;
+    if(from.civ)tgt.killerCiv=from.civ;
+    from.firingAt = { x: tgt.x, y: tgt.y, until: G.time + .2 };
     from.fireT = (from.fireT || 0) - dt;
     if (from.fireT <= 0) { from.fireT = 0.3; shots.push({ x1: from.x, y1: from.y, x2: tgt.x, y2: tgt.y, age: 0, color }); }
   }
@@ -808,6 +810,7 @@
       const targets = targetsFor(G), weak = upkeep(G, dt);
       for (const u of G.units) {
         if (u.owner !== 'player' || u.hp <= 0) continue;
+        if (u.externalOrder) continue;
         if (u.kind === 'yumurta') updateEgg(G, u, dt);
         else if (u.state !== 'chip' && flee(G, u, dt)) continue; // altın halkanın içindeyse önce kaç
         else if (u.kind === 'yavru') updateYavru(G, u, dt);

@@ -142,7 +142,7 @@
         if (e.hp > 0 || e.done) return;
         e.done = true;
         if (e.carrying && G.crystals.includes(e.carrying)) e.carrying.carriedBy = null;
-        if (!e.escaped) { Game.gain(G, c.bounty); fx.push({ x: e.x, y: e.y, age: 0, text: '+' + Game.costText(c.bounty) }); }
+        if (!e.escaped) { Game.gain(G.civilizationAccount?.(e.killerCiv) || G, c.bounty); fx.push({ x: e.x, y: e.y, age: 0, text: '+' + Game.costText(c.bounty) }); }
       });
       fx.forEach((f) => (f.age += dt)); fx = fx.filter((f) => f.age < (f.text ? 1.4 : 0.25));
     },
