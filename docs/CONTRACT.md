@@ -66,7 +66,7 @@ Konumlar **kare** cinsindendir ve ondalıklı olabilir (birimler için merkez no
 
 | Çağrı | Yazan | Çağıran |
 | --- | --- | --- |
-| `City.feed(G, yavru, 'isci'|'asker'|'bilimci')` | Kişi 1 | ui.js |
+| `City.feed(G, yavru, tip)` (tip: `'isci'`, `'asker'`, `'bilimci'`) | Kişi 1 | ui.js |
 | `City.sendSoldier(G, karakol)` | Kişi 1 | ui.js |
 | `City.orderChip(G, member)` | Kişi 1 | colonies.js / ui.js |
 | `Colonies.hunt(G, member)` | Kişi 2 | ui.js |

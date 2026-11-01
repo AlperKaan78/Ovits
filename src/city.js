@@ -15,7 +15,9 @@
 // [ ] Asker: en yakın düşmana (G.enemies, düşman koloni bireyleri) menzilde ateş eder; boştaysa Merkez yanında bekler
 // [ ] Karakol: City.sendSoldier(G, karakol) -> boştaki en yakın asker gider; bakım dakikada 1 / karakolda 2 Öz
 // [ ] Taret: menzildeki en yakın düşmana dps hasar
-// [ ] Bilimci: Laboratuvar varsa oraya gider (research.js hızlandırmayı sayar); City.orderChip(G, hedef) ile çip takmaya gider
+// [ ] İşçi taşırken u.carrying = kristal (akıncılar bunu hedefler), boşken null
+// [ ] Bilimci: Laboratuvar varsa oraya gider ve u.state = 'lab' olur (research.js hızlandırmayı sayar);
+//     City.orderChip(G, member) ile çip takmaya gider, süre dolunca Colonies.chipDone(G, member) çağırır
 (function () {
   const City = (window.City = {});
 
