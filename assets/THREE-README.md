@@ -4,6 +4,8 @@
 
 Depo kökünde `node assets/serve-preview.cjs` çalıştırın; tarayıcıda http://127.0.0.1:4173/assets/three-preview.html açın. Three.js ES modülleri nedeniyle çift tıklamayla file:// açılışı yerine yerel sunucu gerekir. İnternet veya npm kurulumu gerekmez; Three.js r180 yerelde sabitlenmiştir. Sunucu yalnızca 127.0.0.1 üzerinde dinler.
 
+Oynanabilir giriş: http://127.0.0.1:4173/assets/game3d.html . Soldaki listeden veya haritadan birim seçin; sağdaki görev düğmesiyle hedefe sol tıklayın ya da doğrudan hedefe sağ tıklayın. İşçi için “Sarmaşık biç / topla” seçip alanı sürükleyin. Sağ üst mini harita kamerayı taşır. WASD/oklar ve tekerlek kamerayı kontrol eder. Ses ilk etkileşimde etkinleşir; HUD'dan kapanır.
+
 ## Görsel içerik
 
 18 özgün model türü: yedi yapı, işçi/asker/bilimci/yavru/yumurta, akıncı, koloni, kraliçe, sarmaşık, kristal, meteor. Ayrı taş bloklar, teraslar, merdivenler, pencere çerçeveleri, ekipman, eklemli bacaklar ve taşıyıcı metal aksam kodla modellenir. Yüzey renk ve kabartma haritaları deterministik olarak Canvas üzerinden üretilir. Stok model, fotoğraf, HDRI veya üçüncü taraf görsel dokusu kullanılmaz.
@@ -36,5 +38,7 @@ Adaptör buildings, units (kind), enemies, crystals (oz), colonies.members ve ma
 ## Doğrulama
 
 `node --test assets/role3.test.cjs assets/gameplay.test.cjs`: gerçek ortak sözleşmeyle 25 mantık/sistem testi. Playwright kurulu ortamda `node assets/three-check.cjs`: WebGL, 17 seçim/model geçişi, kamera, boyut değişimi, adaptör yaşam döngüsü ve gerçek modüllerle 180 saniyelik simülasyon. `node assets/demo-check.cjs`: gerçek tıklama/klavyeyle 3B oyun akışları ve 2B file:// uyumluluğu. Testler 4174 ve 4175 portunda kendi sunucularını açar; ana önizleme açık kalabilir. Browser-check eski önizlemeleri sınar ve ekran görüntülerini geçici dizine yazar (TEST_OUTPUT_DIR ile değişir).
+
+Güncel toplam 29 Node testi vardır. `node assets/commands-check.cjs` ayrı 4176 portunda üç birim rolünün emirlerini, alan hasadını/kaynakları, mini haritayı ve meteor sesini sınar. Bu test varsayılan Playwright Chromium Headless Shell'i kullanır; yerel test tarayıcısının konumu PLAYWRIGHT_BROWSERS_PATH ile verilebilir. Önceki Edge/Chrome profil sorunlarında ayrı test Chromium'u tercih edilmiştir.
 
 Statik dünya materyale göre birleştirildi: ilk tarayıcı ölçümünde 2903 olan sahne çizim çağrısı 39'a düştü. Bu sayı FPS ölçümü değildir ve donanım performans garantisi vermez. Test görüntüleri `three-settlement.png`, `three-isci.png`, `three-kralice.png`, `three-cekimKulesi.png`, `three-mobile.png`.

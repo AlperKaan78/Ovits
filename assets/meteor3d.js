@@ -1,7 +1,7 @@
 import {THREE,createModel,batchStatic} from './art3d.js';
 
 // Visual only. Positions/timing/damage always come from Meteors and CONFIG.
-export function createMeteorEffects(scene){
+export function createMeteorEffects(scene,onImpact=()=>{}){
   const active=new Map(),impacts=[],craters=[];
   const ringGeometry=new THREE.TorusGeometry(1,.014,6,96);
   const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const c=canvas.getContext('2d'),gradient=c.createRadialGradient(64,64,0,64,64,64);gradient.addColorStop(0,'#fff');gradient.addColorStop(.35,'#ffffff88');gradient.addColorStop(1,'#ffffff00');c.fillStyle=gradient;c.fillRect(0,0,128,128);const glowTexture=new THREE.CanvasTexture(canvas);
@@ -22,7 +22,7 @@ export function createMeteorEffects(scene){
         fx.glow.scale.setScalar(radius);fx.glow.material.color.set(focused?'#ffac4e':'#85cbb4');fx.glow.material.opacity=focused?.42:.24;
         fx.rock.visible=me.t<=.8;fx.rock.position.set(-me.t*2,me.t*19,0);fx.rock.scale.setScalar(me.type==='dev'?.9:.5);
       }
-      for(const [me,fx]of active)if(!seen.has(me)){if(fx.lastT<1){const group=new THREE.Group(),shock=ring(group,'#ffc586');group.position.set(me.x-w/2,.04,me.y-h/2);scene.add(group);impacts.push({group,shock,start:now,r:mc.types[me.type].radius});const crater=new THREE.Mesh(new THREE.CircleGeometry(mc.types[me.type].radius*.8,32),new THREE.MeshStandardMaterial({color:'#3d3135',roughness:1,transparent:true,opacity:.5,depthWrite:false}));crater.rotation.x=-Math.PI/2;crater.position.set(me.x-w/2,-.08,me.y-h/2);scene.add(crater);craters.push({mesh:crater,start:now});}disposeGroup(fx.group);active.delete(me);}
+      for(const [me,fx]of active)if(!seen.has(me)){if(fx.lastT<1){onImpact(me);const group=new THREE.Group(),shock=ring(group,'#ffc586');group.position.set(me.x-w/2,.04,me.y-h/2);scene.add(group);impacts.push({group,shock,start:now,r:mc.types[me.type].radius});const crater=new THREE.Mesh(new THREE.CircleGeometry(mc.types[me.type].radius*.8,32),new THREE.MeshStandardMaterial({color:'#3d3135',roughness:1,transparent:true,opacity:.5,depthWrite:false}));crater.rotation.x=-Math.PI/2;crater.position.set(me.x-w/2,-.08,me.y-h/2);scene.add(crater);craters.push({mesh:crater,start:now});}disposeGroup(fx.group);active.delete(me);}
       for(let i=impacts.length-1;i>=0;i--){const f=impacts[i],age=now-f.start;f.shock.scale.setScalar(f.r*(.2+age*2));f.shock.material.opacity=Math.max(0,1-age);if(age>=1){disposeGroup(f.group);impacts.splice(i,1);}}
       for(let i=craters.length-1;i>=0;i--){const f=craters[i],age=now-f.start;f.mesh.material.opacity=.5*Math.max(0,1-age/90);if(age>90){scene.remove(f.mesh);f.mesh.geometry.dispose();f.mesh.material.dispose();craters.splice(i,1);}}
     },

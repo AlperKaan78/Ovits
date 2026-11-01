@@ -8,6 +8,14 @@ Güncel ortak sözleşme: `docs/CONTRACT.md`. Depodaki gerçek config/core ile u
 - `assets/art3d.js`, `three-game.js`: Three.js modelleri, PBR malzemeleri, arazi, ışık/gölge ve G senkronizasyon adaptörü. Birimler, binalar, düşmanlar, yerdeki kristaller, koloni bireyleri ve map.vine çizilir. Taşınan/tükenmiş kristaller ve çiplenip taşınan bireyler gizlenir.
 - `assets/game3d.html`: gerçek config/core/dünya modülleriyle 3B entegrasyon başlatıcısı. Diğer kişilerin dosyalarını değiştirmeden alternatif giriş sunar. `assets/THREE-README.md` açılış komutlarını açıklar.
 
+## Yeni 3B kontroller
+
+assets/ui3d.js artık birim listesi, görünür görev düğmeleri, sağ üst mini harita ve ses denetimi sunar. Birim tıklaması küçük mesh üçgenleri yanında ekran üzerindeki tolerans alanını da kullanır. Görev düğmesinden sonra sol tık veya doğrudan sağ tık City komutlarına bağlanır; Shift ve kutu seçimi korunur.
+
+assets/tasks3d.js, seçili işçilere dikdörtgen hasat alanı atar; işçilerin o alanın dışını biçmesi engellenir. Başarılı worker:true budaması CONFIG.vines.harvestYield üzerinden G.res.lif ve G.res.ozsu kazandırır. Bu oturuma özel Vines.prune sarmalayıcısı dispose sırasında geri alınır; orijinal Vines maliyet/kök/öfke kontrolleri korunur. CONFIG'e yalnızca harvestYield alanı eklendi.
+
+assets/audio3d.js Web Audio ile özgün çarpma sesi sentezler. İlk kullanıcı etkileşiminde açılır; oyun hızı ses perdesini etkilemez. meteor3d.js onImpact callback'i üzerinden çağrılır. Hazır ses dosyası veya harici görsel varlık kullanılmaz.
+
 Three.js dönüşümü kullanıcının açık isteğiyle yapılmıştır. 2B index.html korunur; yeni ES modülleri localhost sunucusundan açılır. Dünya koordinatları X/Z, yükseklik Y'dir. Görsel ölçek oyun kurallarından ayrıdır. Sabit sahne geometri birleştirme ve sarmaşık instancing ile çizilir.
 
 ## Kalan ekip işleri

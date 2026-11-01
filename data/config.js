@@ -81,6 +81,7 @@ window.CONFIG = {
     roots: [{ x: 46, y: 8 }, { x: 48, y: 20 }, { x: 46, y: 32 }],
     spreadEvery: 7, spreadChance: 0.22, maxCover: 0.6, westBias: 0.55, // westBias: yayılırken batıya (şehre) gitme olasılığı
     damagePerSec: 2, pruneCost: { tas: 5 }, pruneRange: 6,
+    harvestYield: { lif: 1, ozsu: 1 }, // 3B işçi hasadı: Mor Lif ve Azur Özsu; Öz yalnızca meteordan gelir
     workerPruneTime: 1.5, workerPruneArea: 3, // işçi bir kareyi bu kadar sn'de budar ve tıklanan yerin bu kadar karesine kadar devam eder
     growAnim: 1.5, // yeni sarmaşık karesinin büyüme animasyonu (sn, yalnızca görüntü)
     // Sarmaşık Öfkesi (GDD 7): budama ve zehir öfkeyi artırır; tam öfkede yayılma (1 + spreadMul) kat

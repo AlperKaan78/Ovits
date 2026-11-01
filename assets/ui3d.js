@@ -33,6 +33,33 @@
     if(!p.houses.length)return 'Nüfus için bir Ev kurun; işçilerin inşaatı bitirmesini bekleyin.';
     return 'Sonraki yumurta '+time(p.nextEgg)+' · Ardından '+time(config().population?.hatchTime)+' kuluçka.';
   }
+  function choose(G,unit,append=false){if(!unit||unit.hp<=0)return;const selection=G.ui.selection||[];G.ui.selection=append?[...new Set([...selection,unit])]:[unit];G.ui.selected=unit;G.ui.buildMode=null;G.ui.commandMode=null;if(typeof Game.centerOn==='function')Game.centerOn(G,unit.x,unit.y);}
+  function minimap(ctx,G,w){
+    const mw=198,mh=132,mx=w-222,my=104,outer={x:mx-8,y:my-22,w:214,h:166};
+    panel(ctx,outer.x,outer.y,outer.w,outer.h);regions.push(outer);text(ctx,'ZEYRA-9 · HARİTA',mx,my-7,'#b3d2ce',11);
+    const width=G.map?.w||60,height=G.map?.h||40,sx=mw/width,sy=mh/height,terrain=G.map?.terrain||[];
+    ctx.fillStyle='#777668';ctx.fillRect(mx,my,mw,mh);
+    for(let y=0;y<height;y++)for(let x=0;x<width;x++){const kind=terrain[y*width+x];if(kind){ctx.fillStyle=kind==='forest'?'#3b354c':kind==='rock'?'#68666a':'#858473';ctx.fillRect(mx+x*sx,my+y*sy,sx+.2,sy+.2);}if(G.map?.vine?.[y*width+x]){ctx.fillStyle='#9365b5';ctx.fillRect(mx+x*sx,my+y*sy,sx+.3,sy+.3);}}
+    const dot=(e,color,size=2)=>{ctx.fillStyle=color;ctx.fillRect(mx+e.x*sx-size/2,my+e.y*sy-size/2,size,size);};
+    for(const b of G.buildings||[])if(b.hp>0)dot({x:b.x+(b.size||1)/2,y:b.y+(b.size||1)/2},'#e5c38d',Math.max(3,b.size*sx));
+    for(const cr of G.crystals||[])if(!cr.carriedBy)dot(cr,'#b5a1f0',3);
+    for(const u of G.units||[])if(u.hp>0)dot(u,(G.ui.selection||[]).includes(u)?'#ffffff':'#83d5b4',3);
+    for(const e of G.enemies||[])if(e.hp>0)dot(e,'#ef8a78',3);
+    for(const c of G.colonies||[])for(const m of c.members)if(m.hp>0)dot(m,m.role==='kralice'?'#d0a9ed':'#62afbb',m.role==='kralice'?4:2);
+    for(const m of G.meteors||[]){ctx.strokeStyle=m.t<=(config().meteors?.focusTime||5)?'#ffbc72':'#8ce7b4';ctx.beginPath();ctx.arc(mx+m.x*sx,my+m.y*sy,4,0,Math.PI*2);ctx.stroke();}
+    const footprint=G.ui.cameraFootprint;
+    if(footprint){ctx.save();ctx.beginPath();ctx.rect(mx,my,mw,mh);ctx.clip();ctx.strokeStyle='#f1e9d0';ctx.lineWidth=1;ctx.beginPath();footprint.forEach((p,i)=>i?ctx.lineTo(mx+p.x*sx,my+p.y*sy):ctx.moveTo(mx+p.x*sx,my+p.y*sy));ctx.closePath();ctx.stroke();ctx.restore();}
+    buttons.push({x:mx,y:my,w:mw,h:mh,enabled:true,action:info=>{const x=(info.sx-mx)/mw*width,y=(info.sy-my)/mh*height;if(typeof Game.centerOn==='function')Game.centerOn(G,x,y);}});
+    return outer;
+  }
+  function roster(ctx,G){const units=(G.units||[]).filter(u=>u.owner==='player'&&u.hp>0&&u.kind!=='yumurta'),page=Math.max(0,Math.min(G.ui.unitPage||0,Math.max(0,Math.ceil(units.length/6)-1)));G.ui.unitPage=page;
+    const x=14,y=86,w=216,shown=units.slice(page*6,page*6+6),h=48+shown.length*30+(units.length>6?30:0);panel(ctx,x,y,w,h);regions.push({x,y,w,h});text(ctx,'BİRİMLER · '+units.length,x+12,y+21,'#b3d2ce',12);
+    const labels={isci:'İşçi',asker:'Asker',bilimci:'Bilimci',yavru:'Yavru',tasiyici:'Taşıyıcı',savasci:'Savaşçı'};
+    shown.forEach((u,i)=>button(ctx,(labels[u.kind]||u.kind)+' #'+u.id+(u.order?' · görevde':''),x+8,y+31+i*30,w-16,26,true,()=>choose(G,u),(G.ui.selection||[]).includes(u)));
+    if(!units.length)text(ctx,'Yeni birimler için Ev kurun.',x+12,y+39,colors.muted,11);
+    if(units.length>6){const by=y+33+shown.length*30;button(ctx,'Önceki',x+8,by,94,24,page>0,()=>G.ui.unitPage--);button(ctx,'Sonraki',x+110,by,98,24,(page+1)*6<units.length,()=>G.ui.unitPage++);}
+    return y+h;
+  }
   function drawUI(ctx, G) {
     init(G); buttons = []; regions = [];
     if(G.ui.mouse)pointer={x:G.ui.mouse.sx,y:G.ui.mouse.sy};
@@ -41,6 +68,7 @@
     panel(ctx, 0, 0, w, 80);
     text(ctx, 'MOR SARMAŞIK', 16, 25, '#d0afee', 18);
     text(ctx, 'Öz ' + Math.floor(r.oz || 0) + '   Taş ' + Math.floor(r.tas || 0) + '   Kitin ' + Math.floor(r.kitin || 0), 16, 53);
+    if(r.lif!=null||r.ozsu!=null)text(ctx,'Mor Lif '+Math.floor(r.lif||0)+' · Azur Özsu '+Math.floor(r.ozsu||0),Math.max(295,w*.3),53,'#92c9c8',12);
     text(ctx, 'Meteor ' + time(flags.nextWaveIn) + '   Akın ' + time(flags.nextRaidIn), Math.max(270, w * .43), 25, colors.muted, 12);
     button(ctx, G.paused ? 'Devam' : 'Duraklat', w - 205, 41, 105, 29, true, () => { G.paused = !G.paused; });
     button(ctx, (G.speed || 1) + '× hız', w - 92, 41, 80, 29, true, () => { G.speed = G.speed === 3 ? 1 : (G.speed || 1)+1; });
@@ -53,9 +81,13 @@
       const cost = b.cost || b.maliyet;
       button(ctx, (b.ad || b.name || id) + ' · ' + costs(cost), 12 + (i % cols) * (bw + 6), bottom + Math.floor(i / cols) * 57, bw, 49, affordable(G, cost), () => { G.ui.buildMode = G.ui.buildMode === id ? null : id; }, G.ui.buildMode === id);
     });
+    const mini=minimap(ctx,G,w),rosterBottom=roster(ctx,G);
+    const soundReady=G.ui.soundReady;
+    button(ctx,G.ui.soundMuted?'Ses: kapalı':soundReady?'Ses: açık':'Sesi etkinleştir',w-342,7,120,28,typeof G.ui.toggleSound==='function',()=>G.ui.toggleSound(!soundReady));
     const selected = G.ui.selected;
     if (selected) {
-      const y = 92, panelH = Math.max(0, bottom - y - 24);
+      const y = mini.y+mini.h+12, panelH = Math.max(0, bottom - y - 24);
+      G.ui.selectionPanelTop=y;
       regions.push({x: sx, y, w: side, h: panelH});
       panel(ctx, sx, y, side, panelH);
       ctx.save(); ctx.beginPath(); ctx.rect(sx, y, side, panelH); ctx.clip();
@@ -70,6 +102,16 @@
         if (by + 37 > y + panelH) return;
         const enabled = typeof api === 'function' && allowed && affordable(G, cost);
         button(ctx, label + (cost ? ' · ' + costs(cost) : '') + (typeof api === 'function' ? '' : ' (yakında)'), sx + 12, by, side - 24, 37, enabled, () => api(...args)); by += 45;
+      }
+      if(selected.kind&&!['yumurta','yavru'].includes(selected.kind)){
+        const orderLabels={move:'Yürüyor',prune:'Sarmaşık biçiyor',build:'İnşa ediyor',gather:'Kristal topluyor',attack:'Saldırıyor',post:'Karakola gidiyor',lab:'Araştırmaya gidiyor'};
+        text(ctx,'Görev: '+(orderLabels[selected.order?.type]||selected.state==='lab'&&'Araştırıyor'||'Otomatik / boşta'),sx+14,by,colors.muted,12);by+=24;
+        const setMode=mode=>{G.ui.buildMode=null;G.ui.commandMode=mode;};
+        action('Hedefe yürü · sol tıkla yer seç',()=>setMode('move'),[]);
+        action('Görev ver · hedefe sol/sağ tıkla',()=>setMode('context'),[]);
+        if(['isci','tasiyici'].includes(selected.kind))action('Sarmaşık biç / topla · alan seç',()=>setMode('harvest'),[]);
+        if(selected.kind==='bilimci'){text(ctx,'Laboratuvara: araştır · baygın böceğe: çip',sx+14,by,colors.muted,10);by+=22;}
+        action('Görevi bırak / otomatik çalış',()=>{const selection=G.ui.selection?.length?G.ui.selection:[selected];G.ui.cancelTasks?.(selection);if(window.City?.release)City.release(G,selection);G.ui.commandMode=null;},[]);
       }
       if ((selected.kind || selected.type) === 'yavru') {
         for (const [type, label] of [['isci', 'İşçi'], ['asker', 'Asker'], ['bilimci', 'Bilimci']]) {
@@ -122,9 +164,10 @@
       ctx.save(); ctx.globalAlpha = Math.min(1, (8 - age) / 2);
       const content = typeof msg === 'string' ? msg : msg.text || msg.message || '';
       const mw=Math.min(w - side - 48, 510);
-      panel(ctx, 14, 94 + i * 31, mw, 27);
-      ctx.beginPath();ctx.rect(20,94+i*31,mw-12,27);ctx.clip();
-      text(ctx, content, 23, 113 + i * 31, msg.color||colors.text, 12); ctx.restore();
+      const messageY=rosterBottom+12+i*31;
+      panel(ctx, 14, messageY, mw, 27);
+      ctx.beginPath();ctx.rect(20,messageY,mw-12,27);ctx.clip();
+      text(ctx, content, 23, messageY+19, msg.color||colors.text, 12); ctx.restore();
     });
     const pop=population(G),px=14,py=bottom-132,pw=Math.min(610,w-(selected?side+48:28));
     panel(ctx,px,py,pw,112);regions.push({x:px,y:py,w:pw,h:112});
@@ -137,6 +180,7 @@
     if(pop.waiting.length&&!training.some(([type])=>affordable(G,config().population?.foods?.[type]?.cost)))text(ctx,'Yetersiz kaynak: Taş veya meteor kristallerinden Öz toplayın.',px+12,py+105,'#e9ad86',10);
     else text(ctx,'Ev → yumurta → yavru → besin seç → yetişkin ('+time(pop.growTime)+')',px+12,py+105,colors.muted,10);
     ctx.restore();
+    if(G.ui.commandMode){const message=G.ui.commandMode==='harvest'?'İşçi hasadı: sarmaşık alanını sürükleyin veya bir kareye tıklayın.':G.ui.commandMode==='move'?'Yürünecek yere sol tıklayın.':'Görev için kristale, binaya, düşmana veya yere tıklayın.';panel(ctx,250,84,Math.max(100,w-500),40);ctx.save();ctx.beginPath();ctx.rect(258,84,Math.max(80,w-516),40);ctx.clip();text(ctx,message,260,109,'#dcd4ac',12);ctx.restore();}
     if (G.over) {
       buttons = [];
       ctx.fillStyle = 'rgba(8,8,16,.83)'; ctx.fillRect(0, 0, w, h);
@@ -150,10 +194,11 @@
   }
   function onClick(G, info) {
     const b = buttons.slice().reverse().find(b => info.sx >= b.x && info.sx < b.x + b.w && info.sy >= b.y && info.sy < b.y + b.h);
-    if (b) { if (b.enabled) b.action(); return true; }
+    if (b) { if (b.enabled) b.action(info); return true; }
     return !!G.over || regions.some(r => info.sx >= r.x && info.sx < r.x + r.w && info.sy >= r.y && info.sy < r.y + r.h);
   }
   function onMouseMove(G, info) { pointer = {x: info.sx, y: info.sy}; G.ui.mouse={...G.ui.mouse,sx:info.sx,sy:info.sy}; }
-  window.UI = {init, drawUI, onClick, onMouseMove, population};
+  function blocksWorld(G,sx,sy){return !!G.over||regions.some(r=>sx>=r.x&&sx<r.x+r.w&&sy>=r.y&&sy<r.y+r.h)||buttons.some(r=>sx>=r.x&&sx<r.x+r.w&&sy>=r.y&&sy<r.y+r.h);}
+  window.UI = {init, drawUI, onClick, onMouseMove, population,blocksWorld};
   Game.register({name: 'ui', init, drawUI, onClick, onMouseMove});
 })();

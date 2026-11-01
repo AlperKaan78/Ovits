@@ -1,7 +1,7 @@
 const {chromium}=require('playwright'),assert=require('node:assert/strict'),path=require('node:path');
 process.env.PREVIEW_PORT=process.env.PREVIEW_PORT||'4175';const base='http://127.0.0.1:'+process.env.PREVIEW_PORT,server=require('./serve-preview.cjs');
-(async()=>{const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||'msedge',headless:true,args:['--enable-unsafe-swiftshader']});try{
-const page=await browser.newPage(),errors=[];await page.setViewportSize({width:1440,height:1000});page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+(async()=>{const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL==='bundled'?undefined:process.env.BROWSER_CHANNEL||'msedge',headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});try{
+const page=await browser.newPage(),errors=[];page.setDefaultTimeout(45000);await page.setViewportSize({width:1440,height:1000});page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
 await page.goto(base+'/assets/game3d.html');await page.waitForFunction(()=>window.game3d?.view.modelCount>4);
 await page.keyboard.press('Space');assert.equal(await page.evaluate(()=>Game.G.paused),true);
 await page.keyboard.press('e');assert.equal(await page.evaluate(()=>Game.G.ui.buildMode),'ev');
@@ -18,7 +18,7 @@ const movePoint=await mapPoint(11.5,24.5);await page.mouse.click(movePoint.x,mov
 const unitPositions=await page.evaluate(()=>Game.G.units.filter(u=>u.owner==='player').map(u=>({x:u.x,y:u.y}))),projected=[];for(const u of unitPositions)projected.push(await mapPoint(u.x,u.y));const bounds={x0:Math.min(...projected.map(p=>p.x))-18,x1:Math.max(...projected.map(p=>p.x))+18,y0:Math.min(...projected.map(p=>p.y))-18,y1:Math.max(...projected.map(p=>p.y))+18};await page.mouse.move(bounds.x0,bounds.y0);await page.mouse.down();await page.mouse.move(bounds.x1,bounds.y1,{steps:8});await page.mouse.up();assert.ok(await page.evaluate(()=>Game.G.ui.selection.length>=2));await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>Game.G.ui.selection.length),0);
 // Deterministic scenario setup; subsequent actions use actual buttons/keyboard APIs.
 await page.evaluate(()=>{const G=Game.G;const child=Game.addUnit(G,{kind:'yavru',owner:'player',x:10,y:20,hp:25,food:null});G.ui.selected=child;});await page.waitForTimeout(100);
-await page.mouse.click(1180,185);assert.equal(await page.evaluate(()=>Game.G.ui.selected.food),'isci');
+await page.mouse.click(1180,await page.evaluate(()=>Game.G.ui.selectionPanelTop+90));assert.equal(await page.evaluate(()=>Game.G.ui.selected.food),'isci');
 await page.keyboard.press('Escape');
 await page.evaluate(()=>{const G=Game.G;G.time=46;G.flags.nextWaveIn=14;G.meteors=[{x:13,y:18,type:'kaya',t:14,t0:15,sx:13,sy:18,ang:0}];});await page.waitForTimeout(150);assert.equal(await page.evaluate(()=>game3d.view.warningCount),1);
 await page.screenshot({path:path.join(__dirname,'demo-warning.png')});

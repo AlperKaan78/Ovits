@@ -144,8 +144,10 @@ export function createModel(type){materials();const g=new THREE.Group();g.userDa
   return g;
 }
 export function createLandscape({decorativeVines=true,clearPlayable=false}={}){const g=new THREE.Group(),m=materials();
-  const geo=new THREE.PlaneGeometry(76,64,130,110);geo.rotateX(-Math.PI/2);const pos=geo.attributes.position;
-  for(let i=0;i<pos.count;i++){const x=pos.getX(i),z=pos.getZ(i);const edge=Math.max(0,(Math.hypot(x,z)-17)/12);pos.setY(i,clearPlayable&&Math.abs(x)<31&&Math.abs(z)<21?0:Math.sin(x*.33)*Math.cos(z*.27)*.11+edge*(Math.sin(x*.25+z*.2)*.9+.6));}geo.computeVertexNormals();mesh(g,geo,m.soil,0,-.12,0);
+  const geo=new THREE.PlaneGeometry(clearPlayable?640:76,clearPlayable?640:64,clearPlayable?180:130,clearPlayable?180:110);geo.rotateX(-Math.PI/2);const pos=geo.attributes.position;
+  for(let i=0;i<pos.count;i++){const x=pos.getX(i),z=pos.getZ(i);const edge=clearPlayable?Math.min(5,Math.max(0,(Math.hypot(x,z)-34)/12)):Math.max(0,(Math.hypot(x,z)-17)/12);pos.setY(i,clearPlayable&&Math.abs(x)<34&&Math.abs(z)<24?0:Math.sin(x*.13)*Math.cos(z*.17)*.11+edge*(Math.sin(x*.045+z*.02)*.9+.6));}geo.computeVertexNormals();
+  const groundMat=clearPlayable?m.soil.clone():m.soil;if(clearPlayable){groundMat.map=m.soil.map.clone();groundMat.map.repeat.set(200,200);groundMat.bumpMap=groundMat.map;}
+  mesh(g,geo,groundMat,0,-.12,0);
   const rockGeo=new THREE.IcosahedronGeometry(1,3),rp=rockGeo.attributes.position;
   for(let i=0;i<rp.count;i++){const x=rp.getX(i),y=rp.getY(i),z=rp.getZ(i),n=1+Math.sin(x*7+z*3)*Math.cos(y*6-z*4)*.11+Math.sin(x*17+y*13+z*9)*.025;rp.setXYZ(i,x*n,y*n,z*n);}rockGeo.computeVertexNormals();
   for(let i=0;i<160;i++){const x=(random()-.5)*65,z=(random()-.5)*50;if(Math.abs(x)<(clearPlayable?31:14)&&Math.abs(z)<(clearPlayable?21:11))continue;const r=.14+random()*1.2;const o=mesh(g,rockGeo,m.darkStone,x,r*.24,z);o.scale.set(r,r*(.3+random()*.6),r);o.rotation.set(random(),random()*6,random()*.2);}
@@ -153,6 +155,13 @@ export function createLandscape({decorativeVines=true,clearPlayable=false}={}){c
   const gravel=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.06,0),m.stone,1400),dummy=new THREE.Object3D();
   for(let i=0;i<1400;i++){dummy.position.set((random()-.5)*58,.005,(random()-.5)*45);dummy.scale.setScalar(.4+random()*1.6);dummy.rotation.set(random(),random(),random());dummy.updateMatrix();gravel.setMatrixAt(i,dummy.matrix);}gravel.receiveShadow=true;g.add(gravel);
   if(decorativeVines)for(let i=0;i<24;i++){const v=createModel('sarmasik');const a=i*.72;v.position.set(15+Math.sin(a)*4,0,-7+i*.67);v.rotation.y=a;v.scale.setScalar(1.3);g.add(v);}
+  if(clearPlayable){
+    // Distant geology and a violet/blue forest continue far beyond the playable colony.
+    const count=420,rocks=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,1),m.darkStone,count),trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(.18,.5,1,7),m.vine,180),crowns=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,1),m.leaf,180),d=new THREE.Object3D();
+    for(let i=0;i<count;i++){const a=random()*Math.PI*2,r=45+random()*260,s=.6+random()*4;d.position.set(Math.cos(a)*r,0,Math.sin(a)*r);d.scale.set(s,.4*s,s);d.rotation.set(random()*.3,random()*6,0);d.updateMatrix();rocks.setMatrixAt(i,d.matrix);}
+    for(let i=0;i<180;i++){const a=random()*Math.PI*2,r=43+random()*200,height=3+random()*8,x=Math.cos(a)*r,z=Math.sin(a)*r;d.position.set(x,height/2,z);d.scale.set(1,height,1);d.rotation.set(.03,random()*6,.05);d.updateMatrix();trunks.setMatrixAt(i,d.matrix);d.position.set(x,height*.9,z);d.scale.set(height*.35,height*.25,height*.4);d.rotation.set(0,random()*6,0);d.updateMatrix();crowns.setMatrixAt(i,d.matrix);}
+    rocks.receiveShadow=trunks.receiveShadow=crowns.receiveShadow=true;g.add(rocks,trunks,crowns);
+  }
   return g;
 }
 export function createView(canvas){
@@ -164,7 +173,7 @@ export function createView(canvas){
   const sky=new THREE.Mesh(new THREE.SphereGeometry(40,24,16),new THREE.MeshBasicMaterial({color:'#bccbd8',side:THREE.BackSide}));envScene.add(sky);
   const softbox=new THREE.Mesh(new THREE.PlaneGeometry(16,12),new THREE.MeshBasicMaterial({color:'#fff1d7',side:THREE.DoubleSide}));softbox.position.set(-10,16,12);softbox.lookAt(0,0,0);envScene.add(softbox);
   const pmrem=new THREE.PMREMGenerator(renderer),environment=pmrem.fromScene(envScene,.06);scene.environment=environment.texture;scene.environmentIntensity=.45;pmrem.dispose();sky.geometry.dispose();sky.material.dispose();softbox.geometry.dispose();softbox.material.dispose();
-  const camera=new THREE.PerspectiveCamera(38,1,.1,180);camera.position.set(23,19,28);camera.lookAt(0,1,0);
+  const camera=new THREE.PerspectiveCamera(38,1,.1,700);camera.position.set(23,19,28);camera.lookAt(0,1,0);
   scene.add(new THREE.HemisphereLight('#c1d4ed','#514431',2.4));
   const sun=new THREE.DirectionalLight('#ffe2b2',4);sun.position.set(-14,24,13);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-24;sun.shadow.camera.right=24;sun.shadow.camera.top=24;sun.shadow.camera.bottom=-24;sun.shadow.camera.far=85;sun.shadow.normalBias=.035;sun.shadow.bias=-.0001;sun.shadow.radius=3;scene.add(sun);
   const rim=new THREE.DirectionalLight('#a2b5ff',1.2);rim.position.set(8,10,-15);scene.add(rim);

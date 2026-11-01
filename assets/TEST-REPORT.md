@@ -55,3 +55,19 @@ Denge notu (Kişi 2 / data/config.js): otomatik beslenen seed 97 senaryosunun ya
 Son kullanıcı geri bildirimi sonrası 3B HUD'a sürekli nüfus paneli, yumurta/kuluçka/büyüme sayaçları ve yavru seçmeden İşçi/Asker/Bilimci yetiştirme düğmeleri eklendi. Ev/Merkez seçiminde de yetiştirme eylemleri bulunur. Duraklatılmış oyun ve eksik kaynak/yavru durumları açıklanır; temel nüfus kuralları değiştirilmedi.
 
 Güncel Node sonucu **26/26 başarılı**: ek regresyon testi doğal ev yumurtasının açılmasını bekler, HUD'daki gerçek Asker düğmesine tıklama gönderir ve kaynak bedeli, yetişkin sayısı ve asker sayısının artmasını doğrular. Bu ek turdaki tarayıcı doğrulaması Windows tarayıcı başlatma/profil hataları nedeniyle tamamlanamadı; yukarıdaki tarayıcı sonuçları önceki sürümün kontrolleridir. Yeni senaryo demo-check.cjs'ye de eklenmiştir.
+
+## Birim görevleri, alan hasadı, ufuk ve meteor sesi
+
+Son turda **29/29 Node testi başarılı**. Önceki Windows Edge profil sorunu, ayrı Playwright Chromium Headless Shell test çalışma zamanı kullanılarak giderildi. `assets/commands-check.cjs` gerçek tarayıcıda geçti:
+
+- Soldaki listeden işçi, bilimci ve asker seçme; işçiye sol tıkla hedefe yürüme, bilimciye laboratuvar ve askere saldırı emri.
+- İşçi için alan hasadı düğmesi, sürükleyerek sınır seçme, seçilen bölgedeki sarmaşıkların işçi tarafından kaldırılması ve Mor Lif/Azur Özsu artışı.
+- Sağ üst mini harita, haritadan kamera odaklama ve görüş alanı çerçevesi.
+- Meteorun görünür düşüş/çarpma yaşam döngüsünde AudioContext üzerinden özgün sesin gerçekten tetiklenmesi. Tarayıcı testi ses grafiğini ve çağrı sayısını doğrular; dinleyici değerlendirmesi değildir.
+- JavaScript sayfa hatası yok; demo-commands.png görsel olarak incelendi.
+
+Sarmaşık hasadı hâlâ CONFIG.vines.pruneCost öder; kökler elle kesilmez. CONFIG.vines.harvestYield yeni kaynak miktarlarını tanımlar. Kazanç yalnızca başarılı işçi kesimine uygulanır; Yıldız Özü bitkiden üretilmez. Toplanan Mor Lif/Azur Özsu sayaçları 3B HUD'da görünür; mevcut prototipin besleme tarifleri değiştirilmedi.
+
+assets/tasks3d.js alan işlerini sınırlar ve City.command'a bağlar. Bilimcinin laboratuvar emrinin genel hareket emrine dönüşmemesi adaptörde güvenceye alındı. assets/audio3d.js tamamen sentezlenmiş ses kullanır; hazır ses dosyası yoktur. Ses kullanıcı tıklaması/tuşuyla açılır ve HUD'dan kapatılabilir.
+
+Oynanabilir görev ızgarası aynı kaldı; görünür çevre 640×640 dünya birimine uzatıldı. Uzak kaya/ağaçlar instancing ve sisle kesintisiz ufuk izlenimi verir; bunlar ayrı oyun kareleri değildir. Kamera daha uzak yakınlaşma/uzaklaşma ve dış çevreyi görme aralığı sunar. Görev alanı dışına tıklama artık açıklama verir.
