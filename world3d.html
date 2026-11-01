@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <title>Mor Sarmaşık · Zeyra-9</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Sans:wght@400;500&display=swap">
+  <style>
+    :root {
+      --gece: #100c25; --cam: rgba(16, 12, 37, 0.78); --cizgi: rgba(95, 212, 224, 0.45);
+      --sinyal: #5fd4e0; --regolit: #d3c8b1; --metin: #ece6da; --soluk: #a99fb8;
+      --baslik: 'Chakra Petch', 'Segoe UI', sans-serif; --govde: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+    }
+    html, body { margin: 0; height: 100%; background: var(--gece); overflow: hidden; color: var(--metin); font: 13px/1.45 var(--govde); }
+    #world { position: fixed; inset: 0; }
+    .panel { position: fixed; background: var(--cam); border: 1px solid var(--cizgi); padding: 10px 14px; pointer-events: none; backdrop-filter: blur(4px); }
+    .panel::before { content: ''; position: absolute; left: -1px; top: -1px; width: 10px; height: 10px; border-left: 2px solid var(--sinyal); border-top: 2px solid var(--sinyal); }
+    #title { top: 14px; left: 14px; }
+    #title h1 { margin: 0; font: 600 18px/1 var(--baslik); letter-spacing: 0.14em; color: var(--regolit); }
+    #title p { margin: 4px 0 0; color: var(--soluk); font-size: 12px; letter-spacing: 0.04em; }
+    #help { bottom: 14px; left: 14px; color: var(--soluk); }
+    #help b, #info b { color: var(--metin); font-weight: 500; }
+    #info { bottom: 14px; right: 14px; text-align: right; min-width: 230px; font-variant-numeric: tabular-nums; }
+    #err { position: fixed; inset: 0; display: grid; place-items: center; color: #ff8a65; font: 15px var(--govde); }
+  </style>
+</head>
+<body>
+  <div id="world"></div>
+  <div class="panel" id="title"><h1>MOR SARMAŞIK</h1><p>Zeyra-9 · zemin önizlemesi v0.1</p></div>
+  <div class="panel" id="help"><b>WASD</b> / ekran kenarı kaydır · <b>tekerlek</b> yakınlaş · <b>Q E</b> döndür · <b>orta tuş</b> sürükle<br><b>G</b> ızgara · <b>N</b> gündüz / gece · <b>R</b> kamerayı sıfırla</div>
+  <div class="panel" id="info"></div>
+  <!-- Oyunun 2D sürümü index.html'de sürüyor; bu sayfa 3D dünyanın zeminidir. -->
+  <script src="data/config.js"></script>
+  <script src="vendor/three.min.js"></script>
+  <script src="src/world3d.js"></script>
+  <script>
+    window.addEventListener('load', () => {
+      try { World3D.start(document.getElementById('world'), document.getElementById('info')); }
+      catch (err) { console.error(err); document.body.insertAdjacentHTML('beforeend', '<div id="err">3D başlatılamadı: ' + err.message + '</div>'); }
+    });
+  </script>
+</body>
+</html>
