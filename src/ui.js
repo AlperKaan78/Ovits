@@ -20,6 +20,7 @@
   function init(G) { G.ui = G.ui || {}; }
   function drawUI(ctx, G) {
     init(G); buttons = []; regions = [];
+    if(G.ui.mouse)pointer={x:G.ui.mouse.sx,y:G.ui.mouse.sy};
     const w = ctx.canvas.width, h = ctx.canvas.height, r = G.res || G.resources || {}, flags = G.flags || {};
     const side = Math.min(290, w * .36), sx = w - side - 12;
     panel(ctx, 0, 0, w, 80);
@@ -44,7 +45,9 @@
       panel(ctx, sx, y, side, panelH);
       ctx.save(); ctx.beginPath(); ctx.rect(sx, y, side, panelH); ctx.clip();
       const def = (config().buildings || {})[selected.type] || {};
-      text(ctx, def.ad || def.name || selected.name || selected.kind || selected.type || 'Seçim', sx + 14, y + 28, '#dfc6f4', 18);
+      const roleNames={kralice:'Kraliçe',toplayici:'Toplayıcı',muhafiz:'Muhafız',yumurta:'Yumurta',yavru:'Yavru',isci:'İşçi',asker:'Asker',bilimci:'Bilimci',tasiyici:'Taşıyıcı',savasci:'Savaşçı'};
+      const selectionName=selected.member?((selected.colony?.ad?selected.colony.ad+' · ':'')+(roleNames[selected.member.role]||'Koloni bireyi')):def.ad||def.name||selected.name||roleNames[selected.kind]||selected.kind||selected.type||'Seçim';
+      text(ctx, selectionName, sx + 14, y + 28, '#dfc6f4', 18);
       const entity=selected.member||selected;
       if (entity.hp != null) text(ctx, 'Can: ' + Math.ceil(entity.hp) + ' / ' + (entity.maxHp || def.hp || '?'), sx + 14, y + 55);
       let by = y + 78;
@@ -77,7 +80,7 @@
       }
       if (selected.colonyId != null || selected.type === 'member') {
         const member=selected.member||selected;
-        action('Avla', window.Colonies && Colonies.hunt, [G, member],null,member.hp>0&&member.state!=='fainted');
+        action('Avla', window.Colonies && Colonies.hunt, [G, member],null,member.hp>0&&member.state!=='fainted'&&member.role!=='kralice');
         const chip=window.Colonies && typeof Colonies.canChip==='function'?Colonies.canChip(G,member):null;
         action('Çiple',window.Colonies && Colonies.tryChip,[G,member],null,!chip||chip.ok);
         if(chip?.reason&&by<y+panelH)text(ctx,chip.reason,sx+14,by,colors.muted,11);
@@ -91,8 +94,10 @@
       if (age >= 8) return;
       ctx.save(); ctx.globalAlpha = Math.min(1, (8 - age) / 2);
       const content = typeof msg === 'string' ? msg : msg.text || msg.message || '';
-      panel(ctx, 14, 94 + i * 31, Math.min(w - side - 48, 510), 27);
-      text(ctx, content, 23, 113 + i * 31, colors.text, 12); ctx.restore();
+      const mw=Math.min(w - side - 48, 510);
+      panel(ctx, 14, 94 + i * 31, mw, 27);
+      ctx.beginPath();ctx.rect(20,94+i*31,mw-12,27);ctx.clip();
+      text(ctx, content, 23, 113 + i * 31, msg.color||colors.text, 12); ctx.restore();
     });
     if (now < 30 && !selected) {
       panel(ctx, 14, Math.max(262, bottom - 116), Math.min(540, w - 28), 96);

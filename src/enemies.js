@@ -16,7 +16,10 @@
     }
     G.flags.raidNumber++;Game.msg(G,'Kül Göçebeleri geliyor!','#d8a287');
   }
-  function protectedCrystal(G,crystal){return G.buildings.some(b=>alive(b)&&b.type==='karakol'&&dist(b,crystal)<=G.cfg.buildings.karakol.guardRadius);}
+  function protectedCrystal(G,crystal){
+    if(window.City&&typeof City.guardedAt==='function')return City.guardedAt(G,crystal.x,crystal.y);
+    return G.buildings.some(b=>alive(b)&&b.type==='karakol'&&dist(b,crystal)<=G.cfg.buildings.karakol.guardRadius);
+  }
   function steal(G,e,crystal){
     if(!crystal||!(crystal.oz>0))return false;
     G.crystals=G.crystals.filter(c=>c!==crystal);

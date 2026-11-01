@@ -12,4 +12,4 @@ Three.js dönüşümü kullanıcının açık isteğiyle yapılmıştır. 2B ind
 
 ## Kalan ekip işleri
 
-Kişi 1'in şehir ve meteor davranışları bc5bc7f commitinden alındı; bu sürümle 11 mantık testi ve 180 saniyelik tarayıcı simülasyonu geçti. Tam maç ve zafer dengesi henüz doğrulanmadı. `index.html`, `src/core.js`, `src/main.js`, `src/city.js`, `src/meteors.js`, `data/config.js` ve Kişi 2 modüllerine yerel değişiklik yapılmadı; depodan gelen sürümleri kullanılır.
+Kişi 1'in şehir ve meteor davranışlarıyla 25 mantık/sistem testi, 180 saniyelik tarayıcı simülasyonu, doğal Öz zaferi, bilimciyle kraliçe zaferi ve 1200 saniyelik kontrollü stres testi geçti. Gerçek etkileşimli demoda 3B inşa, seçim, besleme, kısayollar, meteor uyarısı/çarpması, sonuç ve yeniden başlatma kontrol edildi. Bütün olası maçlar denenmedi; denge notları assets/TEST-REPORT.md'dedir. `index.html`, `src/core.js`, `src/main.js`, `src/city.js`, `src/meteors.js`, `data/config.js` ve Kişi 2 modüllerine yerel değişiklik yapılmadı; depodan gelen sürümleri kullanılır.
