@@ -1,0 +1,18 @@
+# Godot 4
+.godot/
+.import/
+export.cfg
+export_presets.cfg
+*.translation
+mono_crash.*.json
+data_*/
+# Derleme çıktıları
+build/
+exports/
+# İşletim sistemi
+.DS_Store
+Thumbs.db
+desktop.ini
+# Editör
+.vscode/
+.idea/
