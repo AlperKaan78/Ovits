@@ -31,10 +31,10 @@ view.render(G);
 // Eski 2B dünya çizimi bu modda çağrılmamalı; UI.drawUI aynı kalır.
 ```
 
-Adaptör buildings, units, enemies, crystals listelerini senkronize eder, kaldırılan modelleri temizler, seçimi raycast ile yapar ve ekran tıklamalarını önce UI'ye verir. Bina kurma kurallarını çekirdek uygulamalıdır. Ortak sözleşme henüz gelmediği için gerçek oyunda entegrasyon doğrulanmadı. Sarmaşık ve koloni veri listelerinin şemaları belirlenince aynı senkronizasyona eklenmelidir.
+Adaptör buildings, units (kind), enemies, crystals (oz), colonies.members ve map.vine verilerini gerçek ortak sözleşmeyle senkronize eder, kaldırılan modelleri temizler, seçimi raycast ile yapar ve ekran tıklamalarını önce UI'ye verir. Bina kurma kurallarını çekirdek uygulamalıdır. `assets/game3d.html` gerçek ekip modüllerini yükler; ana index.html ve diğer kişilerin dosyaları değiştirilmez. Bu girişin simülasyon döngüsü güncel core kurallarını izler; çekirdek değişince beraber güncellenmelidir. Şehir ve meteor davranışları hâlâ iskelet olduğundan tam maç testi henüz yapılamaz.
 
 ## Doğrulama
 
-`node --test assets/role3.test.cjs`: 9 mevcut mantık testi. Playwright kurulu ortamda `node assets/three-check.cjs`: WebGL, 17 seçim/model geçişi, döndürme, sürükleme, tekerlek, responsive resize; sayfa hataları denetlenir ve PNG'ler üretilir. Test kendi localhost sunucusunu başlatır, port 4173 boş olmalıdır.
+`node --test assets/role3.test.cjs`: gerçek ortak sözleşmeyle 11 mantık testi. Playwright kurulu ortamda `node assets/three-check.cjs`: WebGL, 17 seçim/model geçişi, döndürme, sürükleme, tekerlek, responsive resize, adaptör yaşam döngüsü ve gerçek modüllerle 180 saniyelik simülasyon; sayfa hataları denetlenir ve PNG'ler üretilir. Test kendi localhost sunucusunu başlatır, port 4173 boş olmalıdır.
 
 Statik dünya materyale göre birleştirildi: ilk tarayıcı ölçümünde 2903 olan sahne çizim çağrısı 39'a düştü. Bu sayı FPS ölçümü değildir ve donanım performans garantisi vermez. Test görüntüleri `three-settlement.png`, `three-isci.png`, `three-kralice.png`, `three-cekimKulesi.png`, `three-mobile.png`.

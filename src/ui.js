@@ -1,4 +1,4 @@
-/* Kişi 3: Canvas-only interface. Provisional G schema documented in assets/INTEGRATION.md. */
+/* Kişi 3: Canvas arayüzü. docs/CONTRACT.md ile uyumlu. */
 (function () {
   'use strict';
   let buttons = [], regions = [], pointer = {x: -1, y: -1};
@@ -20,14 +20,14 @@
   function init(G) { G.ui = G.ui || {}; }
   function drawUI(ctx, G) {
     init(G); buttons = []; regions = [];
-    const w = ctx.canvas.width, h = ctx.canvas.height, r = G.resources || {}, flags = G.flags || {};
+    const w = ctx.canvas.width, h = ctx.canvas.height, r = G.res || G.resources || {}, flags = G.flags || {};
     const side = Math.min(290, w * .36), sx = w - side - 12;
     panel(ctx, 0, 0, w, 80);
     text(ctx, 'MOR SARMAŞIK', 16, 25, '#d0afee', 18);
     text(ctx, 'Öz ' + Math.floor(r.oz || 0) + '   Taş ' + Math.floor(r.tas || 0) + '   Kitin ' + Math.floor(r.kitin || 0), 16, 53);
     text(ctx, 'Meteor ' + time(flags.nextWaveIn) + '   Akın ' + time(flags.nextRaidIn), Math.max(270, w * .43), 25, colors.muted, 12);
     button(ctx, G.paused ? 'Devam' : 'Duraklat', w - 205, 41, 105, 29, true, () => { G.paused = !G.paused; });
-    button(ctx, (G.speed || 1) + '× hız', w - 92, 41, 80, 29, true, () => { G.speed = G.speed === 2 ? 4 : G.speed === 4 ? 1 : 2; });
+    button(ctx, (G.speed || 1) + '× hız', w - 92, 41, 80, 29, true, () => { G.speed = G.speed === 2 ? 1 : 2; });
     const buildings = Object.entries(config().buildings || {}).filter(([id]) => id !== 'merkez');
     const cols = Math.max(1, Math.min(6, Math.floor((w - 24) / 155))), bw = (w - 24 - (cols - 1) * 6) / cols;
     const rows = Math.max(1, Math.ceil(buildings.length / cols)), bottom = h - rows * 57 - 16;
@@ -35,7 +35,7 @@
     panel(ctx, 0, bottom - 10, w, h - bottom + 10);
     buildings.forEach(([id, b], i) => {
       const cost = b.cost || b.maliyet;
-      button(ctx, (b.name || id) + ' · ' + costs(cost), 12 + (i % cols) * (bw + 6), bottom + Math.floor(i / cols) * 57, bw, 49, affordable(G, cost), () => { G.ui.buildMode = G.ui.buildMode === id ? null : id; }, G.ui.buildMode === id);
+      button(ctx, (b.ad || b.name || id) + ' · ' + costs(cost), 12 + (i % cols) * (bw + 6), bottom + Math.floor(i / cols) * 57, bw, 49, affordable(G, cost), () => { G.ui.buildMode = G.ui.buildMode === id ? null : id; }, G.ui.buildMode === id);
     });
     const selected = G.ui.selected;
     if (selected) {
@@ -44,32 +44,44 @@
       panel(ctx, sx, y, side, panelH);
       ctx.save(); ctx.beginPath(); ctx.rect(sx, y, side, panelH); ctx.clip();
       const def = (config().buildings || {})[selected.type] || {};
-      text(ctx, def.name || selected.name || selected.type || 'Seçim', sx + 14, y + 28, '#dfc6f4', 18);
-      if (selected.hp != null) text(ctx, 'Can: ' + Math.ceil(selected.hp) + ' / ' + (selected.maxHp || def.hp || '?'), sx + 14, y + 55);
+      text(ctx, def.ad || def.name || selected.name || selected.kind || selected.type || 'Seçim', sx + 14, y + 28, '#dfc6f4', 18);
+      const entity=selected.member||selected;
+      if (entity.hp != null) text(ctx, 'Can: ' + Math.ceil(entity.hp) + ' / ' + (entity.maxHp || def.hp || '?'), sx + 14, y + 55);
       let by = y + 78;
       function action(label, api, args, cost, allowed = true) {
         if (by + 37 > y + panelH) return;
         const enabled = typeof api === 'function' && allowed && affordable(G, cost);
         button(ctx, label + (cost ? ' · ' + costs(cost) : '') + (typeof api === 'function' ? '' : ' (yakında)'), sx + 12, by, side - 24, 37, enabled, () => api(...args)); by += 45;
       }
-      if (selected.type === 'yavru') {
+      if ((selected.kind || selected.type) === 'yavru') {
         for (const [type, label] of [['isci', 'İşçi'], ['asker', 'Asker'], ['bilimci', 'Bilimci']]) {
-          action(label, window.City && City.feed, [G, selected, type], (config().units || {})[type]?.cost);
+          action(label, window.City && City.feed, [G, selected, type], config().population?.foods?.[type]?.cost || (config().units || {})[type]?.cost, !selected.food);
         }
       }
       if (selected.type === 'karakol') action('Asker gönder', window.City && City.sendSoldier, [G, selected]);
-      if (selected.type === 'laboratuvar') {
+      if (selected.type === 'laboratuvar' || selected.type === 'lab') {
+        if(window.Research && typeof Research.info==='function'){
+          const info=Research.info(G);
+          if(info){text(ctx,info.ad+' · '+Math.floor(info.pct*100)+'%',sx+14,by,colors.muted,12);by+=22;}
+        }
         if (window.Research && typeof Research.available === 'function') {
           const available = Research.available(G) || [];
           if (!available.length) text(ctx, 'Araştırma bekleniyor / tamamlandı', sx + 14, by, colors.muted, 12);
           for (const item of available) {
             const id = typeof item === 'string' ? item : item.id;
             const research = typeof item === 'string' ? (config().research || {})[id] || {} : item;
-            action(research.name || id, Research.enqueue, [G, id], research.cost, research.available !== false);
+            action(research.ad || research.name || id, Research.enqueue, [G, id], research.cost, research.ok !== false && research.available !== false);
+            if(research.reason && by+15<y+panelH){text(ctx,research.reason,sx+15,by-5,colors.muted,10);by+=14;}
           }
         } else action('Araştırma', null, []);
       }
-      if (selected.colonyId != null || selected.type === 'member') action('Avla', window.Colonies && Colonies.hunt, [G, selected]);
+      if (selected.colonyId != null || selected.type === 'member') {
+        const member=selected.member||selected;
+        action('Avla', window.Colonies && Colonies.hunt, [G, member],null,member.hp>0&&member.state!=='fainted');
+        const chip=window.Colonies && typeof Colonies.canChip==='function'?Colonies.canChip(G,member):null;
+        action('Çiple',window.Colonies && Colonies.tryChip,[G,member],null,!chip||chip.ok);
+        if(chip?.reason&&by<y+panelH)text(ctx,chip.reason,sx+14,by,colors.muted,11);
+      }
       ctx.restore();
     }
     const now = G.time || 0;
@@ -86,7 +98,7 @@
       panel(ctx, 14, Math.max(262, bottom - 116), Math.min(540, w - 28), 96);
       text(ctx, 'Şehri büyüt. Meteoru çek. İkmal hattını koru.', 28, Math.max(287, bottom - 91), '#dfc6f4');
       text(ctx, 'Alt çubuk: bina seç · Harita: yerleştir / birim seç', 28, Math.max(313, bottom - 65), colors.muted, 12);
-      text(ctx, 'Amaç: 500 Yıldız Özü veya kraliçeyi çiple. Merkezini koru!', 28, Math.max(337, bottom - 41), colors.muted, 12);
+      text(ctx, 'Amaç: '+(config().win?.oz || 500)+' Yıldız Özü veya kraliçeyi çiple. Merkezini koru!', 28, Math.max(337, bottom - 41), colors.muted, 12);
     }
     if (G.over) {
       buttons = [];
@@ -95,7 +107,7 @@
       panel(ctx, w / 2 - 200, h / 2 - 140, 400, 280);
       text(ctx, won ? 'Kazandın!' : 'Kaybettin', w / 2 - 155, h / 2 - 85, won ? '#cbb0ed' : '#eb9c84', 30);
       text(ctx, 'Süre: ' + time(now), w / 2 - 155, h / 2 - 35);
-      text(ctx, 'Toplanan Öz: ' + Math.floor(G.stats?.collectedOz ?? r.oz ?? 0), w / 2 - 155, h / 2);
+      text(ctx, (G.stats?.collectedOz != null ? 'Toplanan Öz: ' : 'Depodaki Öz: ') + Math.floor(G.stats?.collectedOz ?? r.oz ?? 0), w / 2 - 155, h / 2);
       button(ctx, 'Yeniden başlat', w / 2 - 155, h / 2 + 40, 310, 45, true, () => location.reload());
     }
   }
@@ -104,7 +116,7 @@
     if (b) { if (b.enabled) b.action(); return true; }
     return !!G.over || regions.some(r => info.sx >= r.x && info.sx < r.x + r.w && info.sy >= r.y && info.sy < r.y + r.h);
   }
-  function onMouseMove(G, info) { pointer = {x: info.sx, y: info.sy}; }
+  function onMouseMove(G, info) { pointer = {x: info.sx, y: info.sy}; G.ui.mouse={...G.ui.mouse,sx:info.sx,sy:info.sy}; }
   window.UI = {init, drawUI, onClick, onMouseMove};
   Game.register({name: 'ui', init, drawUI, onClick, onMouseMove});
 })();

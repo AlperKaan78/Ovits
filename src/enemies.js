@@ -1,107 +1,63 @@
-/* Kişi 3: Kül Göçebeleri. Provisional adapter until docs/CONTRACT.md arrives.
- * CONFIG.enemies: firstRaid, raidInterval, count, countGrowth, hp, speed,
- * dps, range, bounty, stealAmount. Times are simulation seconds.
- * Game.moveTo(entity, target, speed * dt); Game.gain(G, {oz: amount}).
- */
+/* Kişi 3 — Kül Göçebeleri. docs/CONTRACT.md ile uyumlu. */
 (function () {
   'use strict';
-  const cfg = () => (window.CONFIG && CONFIG.enemies) || {};
-  const value = (key, fallback) => Number.isFinite(cfg()[key]) ? cfg()[key] : fallback;
-  const alive = e => e && !e.dead && (e.hp == null || e.hp > 0);
-  const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-  const live = list => (list || []).filter(alive);
-  const nearest = (list, from) => list.reduce((best, e) => !best || distance(e, from) < distance(best, from) ? e : best, null);
-  function message(G, text) { if (Game.msg) Game.msg(G, text); }
-  function move(e, target, dt) {
-    const step = value('speed', 2) * dt;
-    if (Game.moveTo) Game.moveTo(e, target, step);
-    else {
-      const d = distance(e, target);
-      if (d) { e.x += (target.x - e.x) * Math.min(1, step / d); e.y += (target.y - e.y) * Math.min(1, step / d); }
+  const cfg=G=>G.cfg.enemies;
+  const alive=e=>e&&e.hp>0&&!e.escaped;
+  const point=e=>e.size?Game.center(e):e;
+  const dist=(a,b)=>{a=point(a);b=point(b);return Game.dist(a.x,a.y,b.x,b.y);};
+  const nearest=(list,e,filter)=>Game.nearest(list,e.x,e.y,filter);
+  function init(G){G.flags.nextRaidIn=cfg(G).firstRaid;G.flags.raidNumber=0;}
+  function spawn(G){const c=cfg(G),count=c.baseSize+c.growPerRaid*G.flags.raidNumber;
+    for(let i=0;i<count;i++){
+      const side=Math.floor(Math.random()*3),along=Math.random();
+      const x=side===0?G.map.w-.01:along*(G.map.w-1);
+      const y=side===1?.01:side===2?G.map.h-.01:along*(G.map.h-1);
+      G.enemies.push({id:Game.newId(),x,y,hp:c.hp,maxHp:c.hp,target:null});
+    }
+    G.flags.raidNumber++;Game.msg(G,'Kül Göçebeleri geliyor!','#d8a287');
+  }
+  function protectedCrystal(G,crystal){return G.buildings.some(b=>alive(b)&&b.type==='karakol'&&dist(b,crystal)<=G.cfg.buildings.karakol.guardRadius);}
+  function steal(G,e,crystal){
+    if(!crystal||!(crystal.oz>0))return false;
+    G.crystals=G.crystals.filter(c=>c!==crystal);
+    for(const u of G.units)if(u.carrying===crystal)u.carrying=null;
+    e.escaped=true;e.hp=0;e.rewarded=true;
+    Game.msg(G,'Akıncı '+Math.ceil(crystal.oz)+' Öz çalıp kaçtı!','#e7a56d');
+    return true;
+  }
+  function target(G,e){
+    return nearest(G.buildings,e,b=>alive(b)&&b.type==='kule')
+      ||nearest(G.units,e,u=>alive(u)&&u.carrying)
+      ||nearest(G.buildings,e,b=>alive(b)&&b.type==='karakol')
+      ||nearest(G.buildings,e,alive);
+  }
+  function update(G,dt){
+    if(G.paused||G.over||!Number.isFinite(dt)||dt<=0)return;
+    const c=cfg(G);G.flags.nextRaidIn-=dt;
+    while(G.flags.nextRaidIn<=0){spawn(G);G.flags.nextRaidIn+=Math.max(1,c.interval);}
+    for(const e of G.enemies){
+      if(e.hp<=0){if(!e.rewarded&&!e.escaped){e.rewarded=true;Game.gain(G,c.bounty);Game.msg(G,'Kül Göçebesi durduruldu: '+Game.costText(c.bounty),'#c6d0a0');}continue;}
+      const crystal=nearest(G.crystals,e,o=>o.oz>0&&o.carriedBy==null&&!protectedCrystal(G,o));
+      if(crystal&&dist(e,crystal)<=c.range){steal(G,e,crystal);continue;}
+      e.target=target(G,e);
+      // No city target: seek only unguarded, uncarried crystals.
+      if(!e.target)e.target=crystal;
+      const t=e.target;if(!t)continue;
+      const p=point(t);
+      if(dist(e,t)>c.range){Game.moveTo(e,p.x,p.y,c.speed,dt);continue;}
+      if(G.crystals.includes(t)){steal(G,e,t);continue;}
+      t.hp=Math.max(0,t.hp-c.dps*dt);
+      if(t.hp<=0&&t.carrying){const loot=t.carrying;steal(G,e,loot);}
+    }
+    G.enemies=G.enemies.filter(e=>e.hp>0&&!e.escaped);
+  }
+  function draw(ctx,G){const T=G.map.tile;
+    for(const e of G.enemies){if(!alive(e))continue;
+      ctx.save();ctx.translate(e.x*T,e.y*T);
+      if(window.Art)Art.draw(ctx,'akinci',0,0,T,{time:G.time});
+      else {ctx.fillStyle=G.cfg.colors.akinci;ctx.strokeStyle='#b9b8bd';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,-T*.4);ctx.lineTo(T*.34,T*.3);ctx.lineTo(-T*.34,T*.3);ctx.closePath();ctx.fill();ctx.stroke();}
+      ctx.fillStyle='#2b2027';ctx.fillRect(-T*.4,-T*.6,T*.8,3);ctx.fillStyle='#d68a79';ctx.fillRect(-T*.4,-T*.6,T*.8*Math.max(0,e.hp/e.maxHp),3);ctx.restore();
     }
   }
-  function init(G) {
-    G.enemies = G.enemies || [];
-    G.flags = G.flags || {};
-    G.flags.nextRaidIn = value('firstRaid', 180);
-    G.flags.raidNumber = 0;
-  }
-  function spawn(G) {
-    const width = G.map && (G.map.width || G.map.w) || 60;
-    const height = G.map && (G.map.height || G.map.h) || 40;
-    const count = Math.max(1, Math.floor(value('count', 3) + G.flags.raidNumber * value('countGrowth', 1)));
-    for (let i = 0; i < count; i++) {
-      const edge = Math.floor(Math.random() * 4), along = Math.random();
-      const x = edge === 0 ? 0 : edge === 1 ? width - 1 : along * (width - 1);
-      const y = edge === 2 ? 0 : edge === 3 ? height - 1 : along * (height - 1);
-      G.enemies.push({type: 'akinci', x, y, hp: value('hp', 45), maxHp: value('hp', 45), home: {x, y}, loot: 0});
-    }
-    G.flags.raidNumber++;
-    message(G, 'Kül Göçebeleri geliyor!');
-  }
-  function target(G, e) {
-    return nearest(live(G.units).filter(u => u.carrying), e)
-      || nearest(live(G.buildings).filter(b => b.type === 'cekimKulesi' || b.type === 'kule'), e)
-      || nearest(live(G.crystals).filter(c => c.amount > 0), e)
-      || nearest(live(G.buildings), e);
-  }
-  function update(G, dt) {
-    if (G.over || G.paused || !(dt > 0) || !Number.isFinite(dt)) return;
-    G.flags = G.flags || {};
-    G.enemies = G.enemies || [];
-    if (!Number.isFinite(G.flags.nextRaidIn)) init(G);
-    G.flags.nextRaidIn -= dt;
-    const interval = Math.max(1, value('raidInterval', 120));
-    while (G.flags.nextRaidIn <= 0) { spawn(G); G.flags.nextRaidIn += interval; }
-    for (const e of G.enemies) {
-      if (e.hp <= 0 && !e.rewarded && !e.escaped) {
-        e.rewarded = true; e.dead = true;
-        if (Game.gain) Game.gain(G, {oz: value('bounty', 3)});
-        message(G, 'Bir Kül Göçebesi durduruldu.');
-      }
-      if (!alive(e)) continue;
-      if (e.loot > 0) {
-        move(e, e.home, dt);
-        if (distance(e, e.home) <= value('range', 0.8)) {
-          e.escaped = true; e.dead = true;
-          message(G, 'Akıncı çaldığı Yıldız Özü ile kaçtı!');
-        }
-        continue;
-      }
-      const t = target(G, e);
-      if (!t) continue;
-      if (distance(e, t) > value('range', 0.8)) { move(e, t, dt); continue; }
-      if ((G.crystals || []).includes(t)) {
-        e.loot = Math.min(t.amount, Math.max(0, value('stealAmount', 5)));
-        t.amount -= e.loot;
-      } else {
-        t.hp = Math.max(0, t.hp - value('dps', 7) * dt);
-        if (t.hp === 0 && t.carrying) {
-          e.loot = typeof t.carrying === 'number' ? t.carrying : (t.carrying.amount || 1);
-          t.carrying = null;
-        }
-      }
-    }
-    G.enemies = G.enemies.filter(e => !e.dead && e.hp > 0);
-  }
-  function draw(ctx, G) {
-    const size = (G.map && G.map.tileSize) || (window.CONFIG && CONFIG.tileSize) || 20;
-    for (const e of G.enemies || []) {
-      if (!alive(e)) continue;
-      if (window.Art) {
-        Art.draw(ctx, 'akinci', (e.x + 0.5) * size, (e.y + 0.5) * size, size, {time: G.time || 0});
-        ctx.fillStyle = '#24222a'; ctx.fillRect(e.x * size, (e.y - .22) * size, size, 3);
-        ctx.fillStyle = '#db7668'; ctx.fillRect(e.x * size, (e.y - .22) * size, size * Math.max(0, Math.min(1, e.hp / e.maxHp)), 3);
-        continue;
-      }
-      ctx.save(); ctx.translate((e.x + 0.5) * size, (e.y + 0.5) * size);
-      ctx.fillStyle = e.loot ? '#c9773a' : '#353841'; ctx.strokeStyle = '#b9bec6'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(0, -size * 0.42); ctx.lineTo(size * 0.36, size * 0.32); ctx.lineTo(-size * 0.36, size * 0.32); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#24222a'; ctx.fillRect(-size / 2, -size * 0.68, size, 3);
-      ctx.fillStyle = '#db7668'; ctx.fillRect(-size / 2, -size * 0.68, size * Math.max(0, Math.min(1, e.hp / e.maxHp)), 3);
-      ctx.restore();
-    }
-  }
-  window.Enemies = {init, update, draw, spawn};
-  Game.register({name: 'enemies', init, update, draw});
+  window.Enemies={init,update,draw,spawn};Game.register({name:'enemies',init,update,draw});
 })();
