@@ -18,6 +18,21 @@
     buttons.push({x, y, w, h, enabled, action});
   }
   function init(G) { G.ui = G.ui || {}; }
+  function population(G){
+    const units=(G.units||[]).filter(u=>u.owner==='player'&&u.hp>0),waiting=units.filter(u=>u.kind==='yavru'&&!u.food),eggs=units.filter(u=>u.kind==='yumurta'),growing=units.filter(u=>u.kind==='yavru'&&u.food);
+    const houses=(G.buildings||[]).filter(b=>b.type==='ev'&&b.hp>0&&b.built!==false),p=config().population||{},ev=config().buildings?.ev||{};
+    const nextEgg=houses.length?Math.min(...houses.map(b=>Math.max(0,(ev.eggEvery||0)-(b.data?.eggT||0)))):null;
+    return {units,waiting,eggs,growing,houses,nextEgg,adults:units.filter(u=>!['yumurta','yavru'].includes(u.kind)),soldiers:units.filter(u=>u.kind==='asker'||u.kind==='savasci'),growTime:p.growTime||0};
+  }
+  function feedNext(G,type){if(window.City&&typeof City.feedNext==='function')return City.feedNext(G,type);const child=population(G).waiting[0];if(child&&window.City&&typeof City.feed==='function')return City.feed(G,child,type);}
+  function populationStatus(G,p){
+    if(G.paused)return 'Duraklatıldı: sürelerin ilerlemesi için Devam’a basın.';
+    if(p.waiting.length)return p.waiting.length+' yavru hazır: aşağıdan yetiştireceğiniz rolü seçin.';
+    if(p.growing.length)return 'Yetişiyor: '+p.growing.length+' · İlk yetişkin '+time(Math.min(...p.growing.map(u=>u.grow||0)))+' sonra.';
+    if(p.eggs.length)return 'Yumurta açılıyor: '+time(Math.min(...p.eggs.map(u=>u.t||0)))+' sonra besin seçebilirsiniz.';
+    if(!p.houses.length)return 'Nüfus için bir Ev kurun; işçilerin inşaatı bitirmesini bekleyin.';
+    return 'Sonraki yumurta '+time(p.nextEgg)+' · Ardından '+time(config().population?.hatchTime)+' kuluçka.';
+  }
   function drawUI(ctx, G) {
     init(G); buttons = []; regions = [];
     if(G.ui.mouse)pointer={x:G.ui.mouse.sx,y:G.ui.mouse.sy};
@@ -60,6 +75,18 @@
         for (const [type, label] of [['isci', 'İşçi'], ['asker', 'Asker'], ['bilimci', 'Bilimci']]) {
           action(label, window.City && City.feed, [G, selected, type], config().population?.foods?.[type]?.cost || (config().units || {})[type]?.cost, !selected.food);
         }
+        if(selected.food&&by<y+panelH)text(ctx,'Yetişmesine '+time(selected.grow)+' kaldı.',sx+14,by,colors.muted,12);
+      }
+      if(selected.type==='ev'||selected.type==='merkez'){
+        const pop=population(G),hasFeed=window.City&&(typeof City.feedNext==='function'||typeof City.feed==='function');
+        if(selected.built===false){text(ctx,'Önce inşaat tamamlanmalı.',sx+14,by,colors.muted,12);by+=25;}
+        text(ctx,'Hazır yavru: '+pop.waiting.length+' · Yumurta: '+pop.eggs.length,sx+14,by,colors.muted,12);by+=23;
+        for(const [type,label]of [['isci','İşçi yetiştir'],['asker','Asker yetiştir'],['bilimci','Bilimci yetiştir']])action(label,hasFeed?feedNext:null,[G,type],config().population?.foods?.[type]?.cost,pop.waiting.length>0);
+        if(by<y+panelH){text(ctx,'Yeni evler daha çok yumurta üretir.',sx+14,by,colors.muted,11);by+=20;}
+      }
+      if(selected.kind==='yumurta'){
+        text(ctx,'Yavru çıkmasına '+time(selected.t)+' kaldı.',sx+14,by,colors.muted,12);by+=24;
+        text(ctx,'Ardından İşçi, Asker veya Bilimci seçin.',sx+14,by,colors.muted,11);
       }
       if (selected.type === 'karakol') action('Asker gönder', window.City && City.sendSoldier, [G, selected]);
       if (selected.type === 'laboratuvar' || selected.type === 'lab') {
@@ -99,12 +126,17 @@
       ctx.beginPath();ctx.rect(20,94+i*31,mw-12,27);ctx.clip();
       text(ctx, content, 23, 113 + i * 31, msg.color||colors.text, 12); ctx.restore();
     });
-    if (now < 30 && !selected) {
-      panel(ctx, 14, Math.max(262, bottom - 116), Math.min(540, w - 28), 96);
-      text(ctx, 'Şehri büyüt. Meteoru çek. İkmal hattını koru.', 28, Math.max(287, bottom - 91), '#dfc6f4');
-      text(ctx, 'Alt çubuk: bina seç · Harita: yerleştir / birim seç', 28, Math.max(313, bottom - 65), colors.muted, 12);
-      text(ctx, 'Amaç: '+(config().win?.oz || 500)+' Yıldız Özü veya kraliçeyi çiple. Merkezini koru!', 28, Math.max(337, bottom - 41), colors.muted, 12);
-    }
+    const pop=population(G),px=14,py=bottom-132,pw=Math.min(610,w-(selected?side+48:28));
+    panel(ctx,px,py,pw,112);regions.push({x:px,y:py,w:pw,h:112});
+    ctx.save();ctx.beginPath();ctx.rect(px+8,py+5,pw-16,103);ctx.clip();
+    text(ctx,'Nüfus '+(pop.units.length-pop.eggs.length)+' · Yetişkin '+pop.adults.length+' · Asker '+pop.soldiers.length+' · Yavru '+pop.waiting.length+' · Yumurta '+pop.eggs.length,px+12,py+22,'#dfc6f4',13);
+    text(ctx,populationStatus(G,pop),px+12,py+43,colors.muted,11);
+    const training=[['isci','İşçi'],['asker','Asker'],['bilimci','Bilimci']],tbw=(pw-36)/3,hasFeed=window.City&&(typeof City.feedNext==='function'||typeof City.feed==='function');
+    training.forEach(([type,label],i)=>{const cost=config().population?.foods?.[type]?.cost,enabled=!!hasFeed&&pop.waiting.length>0&&affordable(G,cost);
+      button(ctx,label+' yetiştir · '+costs(cost),px+12+i*(tbw+6),py+57,tbw,36,enabled,()=>feedNext(G,type));});
+    if(pop.waiting.length&&!training.some(([type])=>affordable(G,config().population?.foods?.[type]?.cost)))text(ctx,'Yetersiz kaynak: Taş veya meteor kristallerinden Öz toplayın.',px+12,py+105,'#e9ad86',10);
+    else text(ctx,'Ev → yumurta → yavru → besin seç → yetişkin ('+time(pop.growTime)+')',px+12,py+105,colors.muted,10);
+    ctx.restore();
     if (G.over) {
       buttons = [];
       ctx.fillStyle = 'rgba(8,8,16,.83)'; ctx.fillRect(0, 0, w, h);
@@ -122,6 +154,6 @@
     return !!G.over || regions.some(r => info.sx >= r.x && info.sx < r.x + r.w && info.sy >= r.y && info.sy < r.y + r.h);
   }
   function onMouseMove(G, info) { pointer = {x: info.sx, y: info.sy}; G.ui.mouse={...G.ui.mouse,sx:info.sx,sy:info.sy}; }
-  window.UI = {init, drawUI, onClick, onMouseMove};
+  window.UI = {init, drawUI, onClick, onMouseMove, population};
   Game.register({name: 'ui', init, drawUI, onClick, onMouseMove});
 })();

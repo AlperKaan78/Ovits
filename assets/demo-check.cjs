@@ -1,7 +1,7 @@
 const {chromium}=require('playwright'),assert=require('node:assert/strict'),path=require('node:path');
 process.env.PREVIEW_PORT=process.env.PREVIEW_PORT||'4175';const base='http://127.0.0.1:'+process.env.PREVIEW_PORT,server=require('./serve-preview.cjs');
-(async()=>{const browser=await chromium.launch({channel:'msedge',headless:true,args:['--enable-unsafe-swiftshader']});try{
-const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+(async()=>{const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||'msedge',headless:true,args:['--enable-unsafe-swiftshader']});try{
+const page=await browser.newPage(),errors=[];await page.setViewportSize({width:1440,height:1000});page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
 await page.goto(base+'/assets/game3d.html');await page.waitForFunction(()=>window.game3d?.view.modelCount>4);
 await page.keyboard.press('Space');assert.equal(await page.evaluate(()=>Game.G.paused),true);
 await page.keyboard.press('e');assert.equal(await page.evaluate(()=>Game.G.ui.buildMode),'ev');
@@ -32,6 +32,12 @@ await page.mouse.click(600,570);await page.waitForFunction(()=>window.Game?.G?.t
 await page.evaluate(()=>{Game.merkez(Game.G).hp=0;});await page.waitForFunction(()=>Game.G.over==='lose');await page.screenshot({path:path.join(__dirname,'demo-lose.png')});
 assert.equal(await page.locator('#error').isVisible(),false);
 console.log('PASS: 3D actual building placement, raycast selection, keyboard, right-click cancel, feeding button, meteor warning/impact, speed, win, reload and defeat.');
+// Reproduce the reported issue without selecting a small hatchling or injecting units.
+await page.reload();await page.waitForFunction(()=>window.game3d?.view.modelCount>4);
+const populationBefore=await page.evaluate(()=>{const G=Game.G;G.paused=true;const before=UI.population(G);const city=Game.modules.find(m=>m.name==='city');for(let i=0;i<Math.ceil((G.cfg.buildings.ev.eggEvery+G.cfg.population.hatchTime+1)*10);i++){G.time+=.1;city.update(G,.1);}return {adults:before.adults.length,soldiers:before.soldiers.length,ready:UI.population(G).waiting.length};});assert.ok(populationBefore.ready>0);
+await page.waitForTimeout(100);await page.mouse.click(300,870);
+assert.equal(await page.evaluate(()=>Game.G.units.some(u=>u.kind==='yavru'&&u.food==='asker')),true);
+const populationAfter=await page.evaluate(()=>{const G=Game.G,city=Game.modules.find(m=>m.name==='city');for(let i=0;i<Math.ceil((G.cfg.population.growTime+1)*10);i++){G.time+=.1;city.update(G,.1);}const p=UI.population(G);return {adults:p.adults.length,soldiers:p.soldiers.length};});assert.equal(populationAfter.adults,populationBefore.adults+1);assert.equal(populationAfter.soldiers,populationBefore.soldiers+1);await page.waitForTimeout(100);await page.screenshot({path:path.join(__dirname,'demo-population.png')});console.log('PASS: naturally produced egg hatches, global Soldier button feeds it, soldier and adult population counts rise.');
 // Original 2D entry must still work from file:// and preserve module compatibility.
 const {pathToFileURL}=require('node:url');await page.goto(pathToFileURL(path.join(__dirname,'..','index.html')).href);await page.waitForFunction(()=>Game.G?.buildings.length>=2);
 await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>Game.G.paused),false);

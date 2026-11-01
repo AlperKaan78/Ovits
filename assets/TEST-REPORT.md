@@ -49,3 +49,9 @@ demo-warning.png, demo-win.png, demo-lose.png ve demo-2d.png incelendi. Yeni sah
 Denge notu (Kişi 2 / data/config.js): otomatik beslenen seed 97 senaryosunun yaklaşık 9 dakikada Öz zaferi alması, görev belgesindeki 15–20 dakika hedefinden kısadır. Sayı ayarları sahiplik sınırı gereği değiştirilmedi; bu sonuç denge gözden geçirmesinde kullanılmalıdır.
 
 Üç boyutlu giriş assets/game3d.html, orijinal giriş index.html'dir. İki sürüm de kontrol edildi. Kişi 1/2 kaynak dosyaları değiştirilmedi.
+
+## Nüfus ve asker üretimi düzeltmesi
+
+Son kullanıcı geri bildirimi sonrası 3B HUD'a sürekli nüfus paneli, yumurta/kuluçka/büyüme sayaçları ve yavru seçmeden İşçi/Asker/Bilimci yetiştirme düğmeleri eklendi. Ev/Merkez seçiminde de yetiştirme eylemleri bulunur. Duraklatılmış oyun ve eksik kaynak/yavru durumları açıklanır; temel nüfus kuralları değiştirilmedi.
+
+Güncel Node sonucu **26/26 başarılı**: ek regresyon testi doğal ev yumurtasının açılmasını bekler, HUD'daki gerçek Asker düğmesine tıklama gönderir ve kaynak bedeli, yetişkin sayısı ve asker sayısının artmasını doğrular. Bu ek turdaki tarayıcı doğrulaması Windows tarayıcı başlatma/profil hataları nedeniyle tamamlanamadı; yukarıdaki tarayıcı sonuçları önceki sürümün kontrolleridir. Yeni senaryo demo-check.cjs'ye de eklenmiştir.
