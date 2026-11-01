@@ -72,11 +72,25 @@
     draw(ctx, G) {
       const info = Research.info(G), b = lab(G);
       if (!info || !b) return;
-      const T = G.map.tile, px = b.x * T, py = b.y * T, w = b.size * T;
-      ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(px - 10, py - 26, w + 20, 18);
-      ctx.fillStyle = '#2e86de'; ctx.fillRect(px - 8, py - 24, (w + 16) * info.pct, 14);
-      ctx.fillStyle = '#fff'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(`${info.ad} ${Math.floor(info.pct * 100)}%`, px + w / 2, py - 13);
+      const T = G.map.tile, colors = G.cfg.colors, cx = (b.x + b.size / 2) * T, py = b.y * T;
+      const label = `⚗ ${info.ad}  ${Math.floor(info.pct * 100)}%` + (info.speed > 1 ? `  ×${info.speed.toFixed(1)}` : '');
+      ctx.font = 'bold 11px sans-serif';
+      const bw = Math.max(b.size * T + 20, ctx.measureText(label).width + 16), bx = cx - bw / 2, by = py - 30;
+      const rr = (x, y, w, h, r) => { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); };
+      ctx.fillStyle = colors.panel; rr(bx, by, bw, 22, 6); ctx.fill();
+      ctx.strokeStyle = colors.arastirma; ctx.lineWidth = 1; ctx.stroke();
+      // ilerleme: üstte parlayan dolgu
+      if (info.pct > 0) {
+        const grd = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+        grd.addColorStop(0, colors.arastirma); grd.addColorStop(1, colors.vineBud);
+        ctx.fillStyle = grd; ctx.globalAlpha = 0.85; rr(bx + 3, by + 15, (bw - 6) * info.pct, 4, 2); ctx.fill(); ctx.globalAlpha = 1;
+      }
+      ctx.fillStyle = colors.text; ctx.textAlign = 'center';
+      ctx.fillText(label, cx, by + 12);
+      if (info.queue.length) {
+        ctx.font = '10px sans-serif'; ctx.fillStyle = colors.vineBud;
+        ctx.fillText('Sırada: ' + info.queue.join(', '), cx, by - 4);
+      }
       ctx.textAlign = 'left';
     },
   });

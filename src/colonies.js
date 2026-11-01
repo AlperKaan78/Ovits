@@ -246,62 +246,206 @@
   }
 
   // ---------- Çizim ----------
-  function drawBug(ctx, G, m, col) {
-    const T = G.map.tile, px = m.x * T, py = m.y * T, colors = G.cfg.colors;
-    const big = m.role === 'kralice' ? 2.1 : m.role === 'muhafiz' ? 1.25 : 1;
-    const L = T * 0.32 * big, W = T * 0.2 * big;
-    let fill = colors.bocekNotr;
-    if (m.state === 'fainted') fill = '#7f8c8d';
-    else if (isHostile(G, col) || m.state === 'attack') fill = colors.bocekDusman;
+  // Renk tonu açma/koyulaştırma: amt > 0 açar, < 0 koyulaştırır
+  function shade(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    const f = (v) => Math.max(0, Math.min(255, Math.round(amt > 0 ? v + (255 - v) * amt : v * (1 + amt))));
+    return 'rgb(' + f(n >> 16) + ',' + f((n >> 8) & 255) + ',' + f(n & 255) + ')';
+  }
+
+  // Altı bacaklı eklem bacaklı. o: { x, y, dir, step, role, fill, fainted, attacking }
+  function drawBugBody(ctx, G, o) {
+    const T = G.map.tile, colors = G.cfg.colors, px = o.x * T, py = o.y * T;
+    const big = o.role === 'kralice' ? 2.2 : o.role === 'muhafiz' ? 1.3 : 1;
+    const L = T * 0.3 * big, W = T * 0.19 * big;
+    const queen = o.role === 'kralice', breathe = queen ? 1 + Math.sin(G.time * 1.5) * 0.04 : 1;
+    const abX = -L * 0.35 - (queen ? L * 0.3 : 0);
+
+    // gölge
+    ctx.fillStyle = colors.golge;
+    ctx.beginPath(); ctx.ellipse(px + 2, py + 3, L * 1.3, W * 1.25, o.dir, 0, Math.PI * 2); ctx.fill();
+
     ctx.save();
     ctx.translate(px, py);
-    ctx.rotate(m.role === 'kralice' ? 0 : m.dir);
-    // bacaklar
-    ctx.strokeStyle = '#1b1b1b'; ctx.lineWidth = m.role === 'kralice' ? 2 : 1.4;
+    ctx.rotate(o.dir);
+    if (o.fainted) ctx.scale(1, -1); // bayılınca sırtüstü
+
+    // bacaklar: iki eklemli, yürürken üçlü yürüyüşle salınır
+    ctx.strokeStyle = colors.bocekBacak; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(1.2, big);
     for (let i = -1; i <= 1; i++) {
-      const sw = m.state === 'fainted' ? 0 : Math.sin(m.step + i) * 0.35;
       for (const side of [-1, 1]) {
-        ctx.beginPath();
-        ctx.moveTo(i * L * 0.45, 0);
-        ctx.lineTo(i * L * 0.45 + (i + sw * side) * L * 0.25, side * (W + L * 0.55));
-        ctx.stroke();
+        const phase = (i + 1 + (side > 0 ? 1 : 0)) % 2 === 0 ? 0 : Math.PI;
+        const sw = o.fainted ? Math.sin(G.time * 9 + i) * 0.12 : Math.sin(o.step + phase) * 0.45;
+        const hx = i * L * 0.32, hy = side * W * 0.5;                             // kalça
+        const kx = hx + (i * 0.35 + sw) * L * 0.45, ky = side * (W + L * 0.35);  // diz
+        const fx = kx + (i * 0.6 + sw) * L * 0.35, fy = ky + side * L * (o.fainted ? 0.05 : 0.3); // ayak
+        ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
       }
     }
-    // gövde: karın + baş
-    ctx.fillStyle = fill; ctx.strokeStyle = '#111'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.ellipse(-L * 0.15, 0, L * 0.75, W, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(L * 0.75, 0, W * 0.7, W * 0.65, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // kabuk çizgileri
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-    for (let k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(-L * 0.15 + k * L * 0.3, -W); ctx.lineTo(-L * 0.15 + k * L * 0.3, W); ctx.stroke(); }
-    if (m.role === 'muhafiz') { // kıskaçlar
-      ctx.strokeStyle = '#111'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(L * 1.1, -W * 0.4); ctx.lineTo(L * 1.45, -W * 0.8); ctx.moveTo(L * 1.1, W * 0.4); ctx.lineTo(L * 1.45, W * 0.8); ctx.stroke();
+
+    // karın (arka)
+    const base = o.fill;
+    const abL = (queen ? L * 1.05 : L * 0.72) * breathe, abW = (queen ? W * 1.25 : W) * breathe;
+    const ab = ctx.createRadialGradient(abX - abL * 0.2, -abW * 0.45, 1, abX, 0, abL * 1.1);
+    ab.addColorStop(0, shade(base, 0.45)); ab.addColorStop(0.55, base); ab.addColorStop(1, shade(base, -0.45));
+    ctx.fillStyle = ab; ctx.strokeStyle = shade(base, -0.65); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(abX, 0, abL, abW, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // karın halkaları
+    ctx.strokeStyle = shade(base, -0.4); ctx.lineWidth = queen ? 1.6 : 1;
+    const segs = queen ? 5 : 3;
+    for (let k = 1; k <= segs; k++) {
+      const rel = -1 + (2 * k) / (segs + 1), sx = abX + rel * abL, hh = abW * Math.sqrt(1 - rel * rel);
+      ctx.beginPath(); ctx.moveTo(sx, -hh * 0.92); ctx.quadraticCurveTo(sx + abL * 0.12, 0, sx, hh * 0.92); ctx.stroke();
+    }
+    // göğüs
+    const th = ctx.createRadialGradient(L * 0.25, -W * 0.3, 1, L * 0.3, 0, W * 0.9);
+    th.addColorStop(0, shade(base, 0.35)); th.addColorStop(1, shade(base, -0.35));
+    ctx.fillStyle = th; ctx.strokeStyle = shade(base, -0.65); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(L * 0.3, 0, W * 0.75, W * 0.7, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (o.role === 'muhafiz') { // zırh plakası
+      ctx.fillStyle = shade(base, -0.3);
+      ctx.beginPath(); ctx.ellipse(L * 0.3, 0, W * 0.45, W * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    // baş
+    ctx.fillStyle = shade(base, -0.2);
+    ctx.beginPath(); ctx.ellipse(L * 0.85, 0, W * 0.55, W * 0.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // gözler
+    ctx.fillStyle = o.fainted ? shade(base, -0.5) : '#111';
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(L * 1.0, s * W * 0.28, Math.max(1.2, W * 0.16), 0, Math.PI * 2); ctx.fill(); }
+    if (!o.fainted) {
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(L * 1.02, s * W * 0.28 - 0.6, Math.max(0.5, W * 0.06), 0, Math.PI * 2); ctx.fill(); }
+    }
+    // duyargalar (kıpırdar)
+    ctx.strokeStyle = colors.bocekBacak; ctx.lineWidth = 1;
+    for (const s of [-1, 1]) {
+      const wig = o.fainted ? 0 : Math.sin(G.time * 5 + s + o.step * 0.3) * W * 0.3;
+      ctx.beginPath(); ctx.moveTo(L * 1.1, s * W * 0.2);
+      ctx.quadraticCurveTo(L * 1.45, s * W * 0.9 + wig, L * 1.75, s * W * 0.7 + wig); ctx.stroke();
+    }
+    // muhafız kıskaçları (saldırırken açılıp kapanır)
+    if (o.role === 'muhafiz') {
+      const open = o.attacking ? 0.35 + Math.abs(Math.sin(G.time * 10)) * 0.4 : 0.35;
+      ctx.strokeStyle = shade(base, -0.6); ctx.lineWidth = 2.2;
+      for (const s of [-1, 1]) {
+        ctx.beginPath(); ctx.moveTo(L * 1.2, s * W * 0.25);
+        ctx.quadraticCurveTo(L * 1.55, s * W * (0.4 + open), L * 1.7, s * W * 0.05); ctx.stroke();
+      }
     }
     ctx.restore();
+    return L;
+  }
+
+  function hpBar(ctx, x, y, w, frac, color) {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x - 1, y - 1, w + 2, 5);
+    ctx.fillStyle = color; ctx.fillRect(x, y, w * Math.max(0, Math.min(1, frac)), 3);
+  }
+
+  function drawBug(ctx, G, m, col) {
+    const T = G.map.tile, colors = G.cfg.colors, px = m.x * T, py = m.y * T;
+    const hostile = isHostile(G, col) || m.state === 'attack';
+    const fill = m.state === 'fainted' ? colors.bocekBayilmis : hostile ? colors.bocekDusman : colors.bocekNotr;
+    const L = drawBugBody(ctx, G, {
+      x: m.x, y: m.y, dir: m.role === 'kralice' ? -Math.PI / 2 : m.dir, step: m.step, role: m.role,
+      fill, fainted: m.state === 'fainted', attacking: m.state === 'attack',
+    });
 
     if (m.role === 'kralice') {
-      ctx.fillStyle = '#f2c14e'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('KRALİÇE ' + col.id, px, py - L - 8); ctx.textAlign = 'left';
+      ctx.fillStyle = colors.kraliceEtiket; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('♛ KRALİÇE ' + col.id, px, py - L * 1.6 - 6); ctx.textAlign = 'left';
     }
     if (m.state === 'fainted') {
-      ctx.fillStyle = '#fff'; ctx.font = '11px sans-serif';
-      ctx.fillText('zzz', px + 6, py - 8 - Math.sin(G.time * 3) * 2);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif';
+      for (let k = 0; k < 3; k++) {
+        const f = (G.time * 0.8 + k / 3) % 1;
+        ctx.globalAlpha = 1 - f; ctx.fillText('z', px + 6 + f * 8, py - 6 - f * 14);
+      }
+      ctx.globalAlpha = 1;
+      if (!m.reserved) hpBar(ctx, px - 10, py + L + 6, 20, m.faintT / cc(G).faintTime, colors.bocekBayilmis);
+    } else if (m.state === 'attack') {
+      ctx.fillStyle = colors.bocekDusman; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('!', px, py - L - 9 - Math.abs(Math.sin(G.time * 6)) * 3); ctx.textAlign = 'left';
     }
-    if (m.reserved) {
-      ctx.strokeStyle = '#2e86de'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+    if (m.hunted) { // av hedefi: kırmızı nişangâh
+      ctx.strokeStyle = colors.bocekDusman; ctx.lineWidth = 1.5; const r = L + 7;
+      ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.stroke();
+      for (let k = 0; k < 4; k++) {
+        const a = k * Math.PI / 2;
+        ctx.beginPath(); ctx.moveTo(px + Math.cos(a) * (r - 4), py + Math.sin(a) * (r - 4)); ctx.lineTo(px + Math.cos(a) * (r + 4), py + Math.sin(a) * (r + 4)); ctx.stroke();
+      }
+    }
+    if (m.reserved) { // bilimci çip takıyor
+      ctx.strokeStyle = colors.arastirma; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.lineDashOffset = -G.time * 15;
       ctx.beginPath(); ctx.arc(px, py, L + 6, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
     }
     if (m.hp < m.maxHp && m.state !== 'fainted') {
-      const bw = L * 2;
-      ctx.fillStyle = '#300'; ctx.fillRect(px - bw / 2, py - L - 6, bw, 3);
-      ctx.fillStyle = '#e74c3c'; ctx.fillRect(px - bw / 2, py - L - 6, bw * Math.max(0, m.hp / m.maxHp), 3);
+      const bw = Math.max(18, L * 2);
+      hpBar(ctx, px - bw / 2, py - L - 6, bw, m.hp / m.maxHp, colors.bocekDusman);
     }
     const sel = G.ui.selected;
     if (sel && sel.type === 'member' && sel.member === m) {
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(px, py, L + 4, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = colors.secim; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.lineDashOffset = G.time * 10;
+      ctx.beginPath(); ctx.arc(px, py, L + 4, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
     }
+  }
+
+  // Yuva: toprak tümsek, tüneller, kraliçenin çevresinde yumurtalar
+  function drawNest(ctx, G, col) {
+    const T = G.map.tile, colors = G.cfg.colors, c = cc(G);
+    const px = (col.queen.x + 0.5) * T, py = (col.queen.y + 0.5) * T, rx = T * 2.4, ry = T * 1.8;
+    const grd = ctx.createRadialGradient(px - rx * 0.2, py - ry * 0.3, T * 0.3, px, py, rx);
+    grd.addColorStop(0, shade(colors.yuvaToprak, 0.25)); grd.addColorStop(0.7, colors.yuvaToprak); grd.addColorStop(1, colors.yuva);
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    for (let k = 0; k <= 24; k++) { // düzensiz kenar
+      const a = (k / 24) * Math.PI * 2, j = 1 + Math.sin(a * 5 + col.queen.x) * 0.06 + Math.sin(a * 3) * 0.05;
+      const x = px + Math.cos(a) * rx * j, y = py + Math.sin(a) * ry * j;
+      if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = colors.yuvaKenar; ctx.lineWidth = 2; ctx.stroke();
+    // tünel ağızları
+    ctx.fillStyle = colors.yuvaDelik;
+    [[-1.5, -0.6], [1.6, 0.4], [-0.9, 1.1], [1.0, -1.0]].forEach(([dx, dy]) => {
+      ctx.beginPath(); ctx.ellipse(px + dx * T, py + dy * T, T * 0.28, T * 0.18, dx, 0, Math.PI * 2); ctx.fill();
+    });
+    // yumurtalar
+    if (!col.captured) {
+      ctx.fillStyle = colors.koloniYumurta;
+      for (let k = 0; k < 7; k++) {
+        const a = k * 0.9 + 0.4, r = T * (0.95 + (k % 3) * 0.18);
+        ctx.globalAlpha = 0.75 + 0.25 * Math.sin(G.time * 2 + k);
+        ctx.beginPath(); ctx.ellipse(px + Math.cos(a) * r, py + Math.sin(a) * r * 0.75, 3.2, 4.2, a, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    // muhafız bölgesi: yalnızca koloni saldırganken ya da fare yakındayken görünür
+    const m = G.ui.mouse, R = (c.muhafiz.guardRadius + 2) * T;
+    const near = Game.dist(m.wx, m.wy, col.queen.x + 0.5, col.queen.y + 0.5) < c.muhafiz.guardRadius + 4;
+    if (isHostile(G, col) || near) {
+      ctx.strokeStyle = colors.bocekDusman; ctx.lineWidth = 1.5; ctx.setLineDash([8, 6]); ctx.lineDashOffset = G.time * 8;
+      ctx.globalAlpha = isHostile(G, col) ? 0.5 + 0.3 * Math.sin(G.time * 5) : 0.35;
+      ctx.beginPath(); ctx.arc(px, py, R, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+  }
+
+  // Çiplenmiş (oyuncuya geçmiş) böcekler: city.js'in çizdiği dairenin üstüne böcek olarak çizilir
+  function drawChipped(ctx, G, u) {
+    const T = G.map.tile, colors = G.cfg.colors;
+    if (u._lx == null) { u._lx = u.x; u._ly = u.y; u._dir = 0; u._step = 0; }
+    const dx = u.x - u._lx, dy = u.y - u._ly, moved = Math.hypot(dx, dy);
+    if (moved > 0.001) { u._dir = Math.atan2(dy, dx); u._step += moved * 9; }
+    u._lx = u.x; u._ly = u.y;
+    const L = drawBugBody(ctx, G, {
+      x: u.x, y: u.y, dir: u._dir, step: u._step, role: u.kind === 'savasci' ? 'muhafiz' : 'toplayici',
+      fill: u.kind === 'savasci' ? colors.savasci : colors.tasiyici,
+    });
+    // sırtındaki çip ışığı
+    ctx.fillStyle = colors.arastirma; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(G.time * 6 + u.id);
+    ctx.beginPath(); ctx.arc(u.x * T, u.y * T, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    if (u.hp < u.maxHp) hpBar(ctx, u.x * T - 10, u.y * T - L - 6, 20, u.hp / u.maxHp, '#4caf50');
   }
 
   Game.register({
@@ -323,24 +467,9 @@
       if (sel && sel.type === 'member' && !G.colonies.some((c) => c.members.includes(sel.member))) G.ui.selected = null;
     },
     draw(ctx, G) {
-      const T = G.map.tile, colors = G.cfg.colors;
-      // yuvalar
-      G.colonies.forEach((col) => {
-        const px = (col.queen.x + 0.5) * T, py = (col.queen.y + 0.5) * T;
-        ctx.fillStyle = colors.yuva;
-        ctx.beginPath(); ctx.ellipse(px, py, T * 2.2, T * 1.6, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'rgba(79,163,224,0.5)'; ctx.lineWidth = 2; ctx.stroke();
-        ctx.strokeStyle = 'rgba(231,76,60,0.25)'; ctx.setLineDash([6, 6]);
-        ctx.beginPath(); ctx.arc(px, py, (cc(G).muhafiz.guardRadius + 2) * T, 0, Math.PI * 2); ctx.stroke();
-        ctx.setLineDash([]);
-      });
+      G.colonies.forEach((col) => drawNest(ctx, G, col));
       G.colonies.forEach((col) => col.members.forEach((m) => drawBug(ctx, G, m, col)));
-      // çiplenmiş (oyuncuya geçmiş) böcekler: turuncu halka ile işaretle
-      G.units.forEach((u) => {
-        if (u.kind !== 'tasiyici' && u.kind !== 'savasci') return;
-        ctx.strokeStyle = colors.bocekCipli; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(u.x * T, u.y * T, T * 0.42, 0, Math.PI * 2); ctx.stroke();
-      });
+      G.units.forEach((u) => { if (u.kind === 'tasiyici' || u.kind === 'savasci') drawChipped(ctx, G, u); });
     },
     onClick(G, info) {
       if (G.ui.buildMode || info.button !== 0) return false;

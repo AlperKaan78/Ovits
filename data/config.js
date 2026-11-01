@@ -24,6 +24,15 @@ window.CONFIG = {
     bocekNotr: '#4caf50', bocekDusman: '#e74c3c', bocekCipli: '#e67e22',
     akinci: '#2d2d2d', text: '#ffffff',
     tasiyici: '#e67e22', savasci: '#d35400', yuva: '#2a1b36',
+    // sarmaşık ayrıntıları
+    vineUnder: 'rgba(52,18,78,0.30)', vineStemDark: '#3a1652', vineStemLight: '#c08ae0',
+    vineLeafDark: '#1f5f8f', vineLeafVein: 'rgba(210,240,255,0.55)', vineGlow: 'rgba(90,190,255,0.16)',
+    vineBud: '#aee9ff', vineRoot: '#2e0f42', vineRootGlow: 'rgba(160,90,220,0.45)',
+    pruneOk: '#ffffff', pruneNo: '#ff8a65', panel: 'rgba(14,10,24,0.82)',
+    // böcek ve yuva ayrıntıları
+    bocekBacak: '#1a1712', bocekBayilmis: '#8a9396', golge: 'rgba(0,0,0,0.28)',
+    yuvaToprak: '#4a3a52', yuvaKenar: 'rgba(120,200,255,0.35)', yuvaDelik: '#120a18',
+    koloniYumurta: '#efe6c8', kraliceEtiket: '#f2c14e', secim: '#ffffff', arastirma: '#2e86de',
   },
 
   buildings: {
@@ -66,6 +75,7 @@ window.CONFIG = {
     roots: [{ x: 46, y: 8 }, { x: 48, y: 20 }, { x: 46, y: 32 }],
     spreadEvery: 7, spreadChance: 0.3, maxCover: 0.6, westBias: 0.55, // westBias: yayılırken batıya (şehre) gitme olasılığı
     damagePerSec: 2, pruneCost: { tas: 5 }, pruneRange: 6,
+    growAnim: 1.5, // yeni sarmaşık karesinin büyüme animasyonu (sn, yalnızca görüntü)
   },
 
   colonies: {
