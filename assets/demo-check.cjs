@@ -13,6 +13,9 @@ assert.equal(await page.evaluate(()=>Game.G.buildings.length),initial+1);assert.
 // Raycast the visible facade: selection must use the object rather than ground behind it.
 const buildingPoint=await mapPoint(12.5,22.5,.3);await page.mouse.click(buildingPoint.x,buildingPoint.y);assert.equal(await page.evaluate(()=>Game.G.ui.selected?.type),'ev');
 await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>Game.G.ui.selected),null);
+const worker=await page.evaluate(()=>{const u=Game.G.units.find(u=>u.kind==='isci');return {x:u.x,y:u.y};});const workerScreen=await mapPoint(worker.x,worker.y,.3);await page.mouse.click(workerScreen.x,workerScreen.y);assert.equal(await page.evaluate(()=>Game.G.ui.selection[0]?.kind),'isci');
+const movePoint=await mapPoint(11.5,24.5);await page.mouse.click(movePoint.x,movePoint.y,{button:'right'});assert.equal(await page.evaluate(()=>Game.G.ui.selection[0]?.order?.type),'move');
+const unitPositions=await page.evaluate(()=>Game.G.units.filter(u=>u.owner==='player').map(u=>({x:u.x,y:u.y}))),projected=[];for(const u of unitPositions)projected.push(await mapPoint(u.x,u.y));const bounds={x0:Math.min(...projected.map(p=>p.x))-18,x1:Math.max(...projected.map(p=>p.x))+18,y0:Math.min(...projected.map(p=>p.y))-18,y1:Math.max(...projected.map(p=>p.y))+18};await page.mouse.move(bounds.x0,bounds.y0);await page.mouse.down();await page.mouse.move(bounds.x1,bounds.y1,{steps:8});await page.mouse.up();assert.ok(await page.evaluate(()=>Game.G.ui.selection.length>=2));await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>Game.G.ui.selection.length),0);
 // Deterministic scenario setup; subsequent actions use actual buttons/keyboard APIs.
 await page.evaluate(()=>{const G=Game.G;const child=Game.addUnit(G,{kind:'yavru',owner:'player',x:10,y:20,hp:25,food:null});G.ui.selected=child;});await page.waitForTimeout(100);
 await page.mouse.click(1180,185);assert.equal(await page.evaluate(()=>Game.G.ui.selected.food),'isci');
@@ -22,6 +25,7 @@ await page.screenshot({path:path.join(__dirname,'demo-warning.png')});
 await page.evaluate(()=>{Game.G.meteors[0].t=.2;});await page.waitForTimeout(100);await page.evaluate(()=>{Game.G.meteors=[];Game.G.time+=.2;});await page.waitForTimeout(100);assert.ok(await page.evaluate(()=>game3d.view.impactCount>0));
 await page.evaluate(()=>{const G=Game.G;G.ui.selected=null;G.meteors=[];G.time=0;});await page.keyboard.press('Space');await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>Game.G.paused),false);
 await page.keyboard.press('2');assert.equal(await page.evaluate(()=>Game.G.speed),2);
+await page.keyboard.press('3');assert.equal(await page.evaluate(()=>Game.G.speed),3);
 await page.mouse.wheel(0,-100);await page.keyboard.press('ArrowRight');
 await page.evaluate(()=>{Game.G.res.oz=Game.G.cfg.win.oz;});await page.waitForFunction(()=>Game.G.over==='win');await page.screenshot({path:path.join(__dirname,'demo-win.png')});
 await page.mouse.click(600,570);await page.waitForFunction(()=>window.Game?.G?.time<5&&Game.G.over===null);
@@ -30,6 +34,7 @@ assert.equal(await page.locator('#error').isVisible(),false);
 console.log('PASS: 3D actual building placement, raycast selection, keyboard, right-click cancel, feeding button, meteor warning/impact, speed, win, reload and defeat.');
 // Original 2D entry must still work from file:// and preserve module compatibility.
 const {pathToFileURL}=require('node:url');await page.goto(pathToFileURL(path.join(__dirname,'..','index.html')).href);await page.waitForFunction(()=>Game.G?.buildings.length>=2);
+await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>Game.G.paused),false);
 await page.keyboard.press('Space');assert.equal(await page.evaluate(()=>Game.G.paused),true);await page.keyboard.press('e');assert.equal(await page.evaluate(()=>Game.G.ui.buildMode),'ev');await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>Game.G.ui.buildMode),null);
 await page.screenshot({path:path.join(__dirname,'demo-2d.png')});assert.deepEqual(errors,[]);console.log('PASS: 2D file:// entry, keyboard, UI, zero page or console errors.');
 }finally{await browser.close();server.close();}})().catch(e=>{console.error(e);server.close();process.exitCode=1});

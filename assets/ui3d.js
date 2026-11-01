@@ -28,7 +28,7 @@
     text(ctx, 'Öz ' + Math.floor(r.oz || 0) + '   Taş ' + Math.floor(r.tas || 0) + '   Kitin ' + Math.floor(r.kitin || 0), 16, 53);
     text(ctx, 'Meteor ' + time(flags.nextWaveIn) + '   Akın ' + time(flags.nextRaidIn), Math.max(270, w * .43), 25, colors.muted, 12);
     button(ctx, G.paused ? 'Devam' : 'Duraklat', w - 205, 41, 105, 29, true, () => { G.paused = !G.paused; });
-    button(ctx, (G.speed || 1) + '× hız', w - 92, 41, 80, 29, true, () => { G.speed = G.speed === 2 ? 1 : 2; });
+    button(ctx, (G.speed || 1) + '× hız', w - 92, 41, 80, 29, true, () => { G.speed = G.speed === 3 ? 1 : (G.speed || 1)+1; });
     const buildings = Object.entries(config().buildings || {}).filter(([id]) => id !== 'merkez');
     const cols = Math.max(1, Math.min(6, Math.floor((w - 24) / 155))), bw = (w - 24 - (cols - 1) * 6) / cols;
     const rows = Math.max(1, Math.ceil(buildings.length / cols)), bottom = h - rows * 57 - 16;

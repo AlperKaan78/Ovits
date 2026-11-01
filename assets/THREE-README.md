@@ -28,10 +28,10 @@ const view=createGameView({
 // Ana döngüde simülasyondan sonra:
 view.render(G);
 // UI canvas dünya canvas'ının üstünde absolute konumlanmalı ve pointer-events:none olmalı.
-// Eski 2B dünya çizimi bu modda çağrılmamalı; UI.drawUI aynı kalır.
+// Three.js girişinde assets/ui3d.js yüklenir; src/ui.js, 2B AoE girişinde kullanılır.
 ```
 
-Adaptör buildings, units (kind), enemies, crystals (oz), colonies.members ve map.vine verilerini gerçek ortak sözleşmeyle senkronize eder, kaldırılan modelleri temizler, seçimi raycast ile yapar ve ekran tıklamalarını önce UI'ye verir. İnşa önizlemesi City.canPlace kurallarını izler; yerleştirmeyi City uygular. Meteor uyarıları, düşüş ve çarpma/krater efektleri meteor3d.js içindedir. `assets/game3d.html` gerçek ekip modüllerini yükler; ana index.html ve diğer kişilerin dosyaları değiştirilmez. Bu girişin simülasyon döngüsü güncel core kurallarını izler; çekirdek değişince beraber güncellenmelidir. Son kapsamlı kontroller için TEST-REPORT.md'ye bakın.
+Adaptör buildings, units (kind), enemies, crystals (oz), colonies.members ve map.vine verilerini gerçek ortak sözleşmeyle senkronize eder, kaldırılan modelleri temizler, seçimi raycast ile yapar ve ekran tıklamalarını önce 3B HUD'a verir. İnşa önizlemesi City.canPlace kurallarını izler; yerleştirmeyi City uygular. Kutu seçimi ve sağ tık emirleri güncel City.command'a bağlanır; inşaat ilerlemesi model yüksekliğine yansır. Meteor uyarıları, düşüş ve çarpma/krater efektleri meteor3d.js içindedir. `assets/game3d.html` gerçek ekip modüllerini ve assets/ui3d.js'yi yükler; ana index.html ve diğer kişilerin dosyaları değiştirilmez. Bu girişin simülasyon döngüsü güncel core kurallarını izler; çekirdek değişince beraber güncellenmelidir. Son kapsamlı kontroller için TEST-REPORT.md'ye bakın.
 
 ## Doğrulama
 

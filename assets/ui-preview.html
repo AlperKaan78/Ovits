@@ -5,7 +5,7 @@
 window.CONFIG={tileSize:20,buildings:{merkez:{name:'Merkez',hp:600},ev:{name:'Ev',cost:{tas:30}},tasOcagi:{name:'Taş Ocağı',cost:{tas:40}},cekimKulesi:{name:'Çekim Kulesi',cost:{tas:80,oz:20}},karakol:{name:'Karakol',cost:{tas:50}},taret:{name:'Taret',cost:{tas:60,oz:15}},laboratuvar:{name:'Laboratuvar',cost:{tas:80,oz:30}}}};
 window.Game={register(){},canAfford:(g,c)=>Object.entries(c||{}).every(([k,v])=>(g.resources[k]||0)>=v),costText:c=>Object.entries(c||{}).map(([k,v])=>v+' '+({tas:'Taş',oz:'Öz',kitin:'Kitin'}[k]||k)).join(' / ')};
 window.G={resources:{oz:25,tas:130,kitin:4},ui:{},flags:{nextWaveIn:42,nextRaidIn:161},time:19,messages:[{time:17,text:'Koloni kuruldu. İlk meteor yaklaşıyor.'}],stats:{collectedOz:157}};
-</script><script src="art.js"></script><script src="../src/ui.js"></script><script>
+</script><script src="art.js"></script><script src="ui3d.js"></script><script>
 const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
 document.querySelector('select').onchange=e=>{const v=e.target.value;G.over=v==='win'||v==='lose'?v:null;G.ui.selected=!v||G.over?null:{type:v,hp:180,maxHp:250,colonyId:v==='member'?0:null}};
 function point(e){const r=canvas.getBoundingClientRect();return {sx:(e.clientX-r.left)*canvas.width/r.width,sy:(e.clientY-r.top)*canvas.height/r.height}}

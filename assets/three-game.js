@@ -15,10 +15,12 @@ export function createGameView({canvas,uiCanvas,onMapClick=()=>{},onError=consol
   const vineTemplate=batchStatic(createModel('sarmasik'));
   const records=new Map(),raycaster=new THREE.Raycaster(),mouse=new THREE.Vector2();
   const ground=new THREE.Plane(new THREE.Vector3(0,1,0),0),hit=new THREE.Vector3();
-  let current=null,disposed=false;
+  let current=null,disposed=false,dragStart=null,dragging=false,suppressClick=false;
   function coordinates(e){const r=canvas.getBoundingClientRect();return {sx:(e.clientX-r.left)*(uiCanvas?.width||r.width)/r.width,sy:(e.clientY-r.top)*(uiCanvas?.height||r.height)/r.height};}
   function click(event){if(!current)return;
-    const info=coordinates(event);if(window.UI?.onClick(current,info))return;
+    if(suppressClick&&event.button===0){suppressClick=false;return;}
+    const info=coordinates(event);if(event.button===0&&window.UI?.onClick(current,info))return;
+    if(event.button===2&&(current.over||info.sy<80||info.sy>canvas.clientHeight-90))return;
     const rect=canvas.getBoundingClientRect();mouse.set((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(mouse,camera);
     const intersections=raycaster.intersectObjects([...records.values()].map(r=>r.model),true);
     let entity=null;if(intersections.length){let object=intersections[0].object;while(object&&!object.userData.entity)object=object.parent;entity=object?.userData.entity||null;}
@@ -27,12 +29,17 @@ export function createGameView({canvas,uiCanvas,onMapClick=()=>{},onError=consol
     if(entity&&!current.ui?.buildMode){wx=entity.x+(entity.size?entity.size/2:0);wy=entity.y+(entity.size?entity.size/2:0);}
     const x=Math.floor(wx),y=Math.floor(wy);
     if(x<0||y<0||x>=(current.map?.w||current.map?.width||60)||y>=(current.map?.h||current.map?.height||40))return;
-    if(entity&&!current.ui?.buildMode){current.ui=current.ui||{};const colony=current.colonies?.find(c=>c.members.includes(entity));current.ui.selected=colony?{type:'member',member:entity,colony}:entity;}
+    if(event.button===0&&entity&&!current.ui?.buildMode){current.ui=current.ui||{};const colony=current.colonies?.find(c=>c.members.includes(entity));
+      if(entity.kind&&entity.owner==='player'){const selection=current.ui.selection||[];current.ui.selection=event.shiftKey?(selection.includes(entity)?selection.filter(u=>u!==entity):[...selection,entity]):[entity];current.ui.selected=current.ui.selection[0]||null;}
+      else {current.ui.selection=[];current.ui.selected=colony?{type:'member',member:entity,colony}:entity;}}
     onMapClick(current,{x,y,wx,wy,entity,event,...info});
   }
   function move(event){if(!current)return;const info=coordinates(event);window.UI?.onMouseMove(current,info);const r=canvas.getBoundingClientRect();mouse.set((event.clientX-r.left)/r.width*2-1,-(event.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(mouse,camera);if(raycaster.ray.intersectPlane(ground,hit)){const wx=hit.x+(current.map.w||60)/2,wy=hit.z+(current.map.h||40)/2;current.ui.mouse={...current.ui.mouse,...info,wx,wy,tx:Math.floor(wx),ty:Math.floor(wy)};}}
-  function cancel(event){event.preventDefault();if(current)current.ui.buildMode=null;}
-  canvas.addEventListener('click',click);canvas.addEventListener('pointermove',move);canvas.addEventListener('contextmenu',cancel);
+  function cancel(event){event.preventDefault();if(!current)return;if(current.ui.buildMode||current.ui.tool){current.ui.buildMode=null;current.ui.tool=null;return;}click(event);}
+  function down(event){if(event.button!==0||!current||current.ui.buildMode||current.over)return;const p=coordinates(event);if(p.sy<80||p.sy>canvas.clientHeight-90||current.ui.selected&&p.sx>canvas.clientWidth-302)return;dragStart=p;dragging=false;}
+  function drag(event){if(!dragStart||!current)return;const p=coordinates(event);dragging=Math.hypot(p.sx-dragStart.sx,p.sy-dragStart.sy)>5;if(dragging)current.ui.drag={active:true,x0:dragStart.sx,y0:dragStart.sy,x1:p.sx,y1:p.sy};}
+  function up(event){if(dragging&&current){const p=coordinates(event),x0=Math.min(dragStart.sx,p.sx),x1=Math.max(dragStart.sx,p.sx),y0=Math.min(dragStart.sy,p.sy),y1=Math.max(dragStart.sy,p.sy),selection=[];for(const [entity,record]of records){if(entity.owner!=='player'||!entity.kind||entity.kind==='yumurta')continue;const projected=record.model.position.clone().project(camera),x=(projected.x+1)*canvas.clientWidth/2,y=(1-projected.y)*canvas.clientHeight/2;if(projected.z>=-1&&projected.z<=1&&x>=x0&&x<=x1&&y>=y0&&y<=y1)selection.push(entity);}current.ui.selection=event.shiftKey?[...new Set([...(current.ui.selection||[]),...selection])]:selection;current.ui.selected=current.ui.selection[0]||null;suppressClick=true;}if(current)current.ui.drag=null;dragStart=null;dragging=false;}
+  canvas.addEventListener('click',click);canvas.addEventListener('pointermove',move);canvas.addEventListener('contextmenu',cancel);canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',drag);window.addEventListener('pointerup',up);
   const alias={kule:'cekimKulesi',ocak:'tasOcagi',lab:'laboratuvar',tasiyici:'koloni',savasci:'koloni',toplayici:'koloni',muhafiz:'koloni',member:'koloni',queen:'kralice',worker:'isci',soldier:'asker',scientist:'bilimci'};
   function remove(record){scene.remove(record.model);const geometries=new Set();record.model.traverse(o=>{if(o.geometry)geometries.add(o.geometry);});for(const geo of geometries)geo.dispose();}
   return {
@@ -51,6 +58,7 @@ export function createGameView({canvas,uiCanvas,onMapClick=()=>{},onError=consol
         if(Math.hypot(dx,dy)>.001&&!entity.size)model.rotation.y=Math.atan2(dx,dy);else if(Number.isFinite(entity.rotation??entity.dir))model.rotation.y=entity.rotation??entity.dir;
         record.lastX=entity.x;record.lastY=entity.y;
         if(entity.state==='fainted')model.rotation.z=Math.PI/2;else model.rotation.z=0;
+        if(entity.built===false)model.scale.y*=.15+.85*Math.min(1,(entity.progress||0)/(G.cfg.buildings[entity.type].buildTime||1));
         if(entity.carrying&&!record.cargo){record.cargo=batchStatic(createModel('kristal'));record.cargo.scale.setScalar(.35);record.cargo.position.set(0,1.2,-.55);model.add(record.cargo);}
         if(record.cargo)record.cargo.visible=!!entity.carrying;
       }
@@ -68,9 +76,10 @@ export function createGameView({canvas,uiCanvas,onMapClick=()=>{},onError=consol
       renderer.render(scene,camera);
       if(uiCanvas&&window.UI){const w=canvas.clientWidth,h=canvas.clientHeight;if(uiCanvas.width!==w||uiCanvas.height!==h){uiCanvas.width=w;uiCanvas.height=h;}const ctx=uiCanvas.getContext('2d');ctx.clearRect(0,0,w,h);
         for(const [entity,record]of records){if(!(entity.maxHp>0)||entity.hp>=entity.maxHp&&entity!==selected)continue;const p=record.model.position.clone();p.y+=entity.size?entity.size*1.1:1.1;p.project(camera);if(p.z>1||p.z< -1)continue;const x=(p.x+1)*w/2,y=(1-p.y)*h/2;ctx.fillStyle='#251f28';ctx.fillRect(x-19,y,38,4);ctx.fillStyle='#b9d6a0';ctx.fillRect(x-19,y,38*Math.max(0,Math.min(1,entity.hp/entity.maxHp)),4);}
+        const d=G.ui?.drag;if(d?.active){ctx.fillStyle='#9bdbab22';ctx.strokeStyle='#b8dbab';ctx.fillRect(d.x0,d.y0,d.x1-d.x0,d.y1-d.y0);ctx.strokeRect(d.x0,d.y0,d.x1-d.x0,d.y1-d.y0);}
         try{UI.drawUI(ctx,G);}catch(error){onError(error);}}
     },
-    dispose(){disposed=true;canvas.removeEventListener('click',click);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('contextmenu',cancel);meteorEffects.dispose();selection.geometry.dispose();selection.material.dispose();ghost.geometry.dispose();ghost.material.dispose();for(const record of records.values())remove(record);records.clear();const geometries=new Set();terrain.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.isInstancedMesh)o.dispose();});for(const mesh of vineMeshes){mesh.dispose();scene.remove(mesh);}vineTemplate.traverse(o=>{if(o.geometry)geometries.add(o.geometry);});for(const geo of geometries)geo.dispose();view.dispose();},
+    dispose(){disposed=true;canvas.removeEventListener('click',click);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('contextmenu',cancel);canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',drag);window.removeEventListener('pointerup',up);meteorEffects.dispose();selection.geometry.dispose();selection.material.dispose();ghost.geometry.dispose();ghost.material.dispose();for(const record of records.values())remove(record);records.clear();const geometries=new Set();terrain.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.isInstancedMesh)o.dispose();});for(const mesh of vineMeshes){mesh.dispose();scene.remove(mesh);}vineTemplate.traverse(o=>{if(o.geometry)geometries.add(o.geometry);});for(const geo of geometries)geo.dispose();view.dispose();},
     get modelCount(){return records.size;}
     ,get warningCount(){return meteorEffects.warningCount;},get impactCount(){return meteorEffects.impactCount;}
   };

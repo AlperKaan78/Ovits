@@ -22,23 +22,32 @@
 // [x] Bilimci: Laboratuvar varsa oraya gider ve u.state = 'lab' olur (research.js hızlandırmayı sayar);
 //     City.orderChip(G, member) ile çip takmaya gider, süre dolunca Colonies.chipDone(G, member) çağırır
 //
-// Seçim: oyuncu birimine ya da binaya sol tıklanınca G.ui.selected = o nesne (birimde .kind, binada .type alanı var).
+// [x] AoE tarzı emirler: seçili birimlerle sağ tık -> yürü / saldır / avla / kristal topla / inşa et / buda / karakola gir / çiple
+//     u.order = { type: 'move'|'attack'|'gather'|'build'|'prune'|'post', ... }; emir bitince birim kendi işine döner.
+//     Yürüme emri sonrası u.anchor = varılan nokta: asker orayı korur, işçi oradaki kristalleri toplar.
+// [x] İnşaat: City.build temel atar (b.built = false); seçili ya da en yakın işçiler gelip buildTime saniyede kurar.
+//     Kurulmamış bina üretmez, ateş etmez (City.isBuilt(b)).
+//
+// Seçim: sol tık / kutu seçimi -> G.ui.selection (birimler), G.ui.selected (ilk birim ya da tek bina).
 // Kristal alanları: carriedBy = taşıyan birimin id'si; claimedBy = kristale yürüyen işçinin id'si (henüz almadı).
 // City.guardedAt(G, x, y): içinde asker olan bir karakolun guardRadius'u içindeyse true (akıncılar için).
 (function () {
   const City = (window.City = {});
   const BUILD_KEYS = { e: 'ev', o: 'ocak', k: 'kule', r: 'karakol', t: 'taret', l: 'lab' };
   const FOOD_KEYS = { z: 'isci', x: 'asker', c: 'bilimci' };
-  let shots = [], popups = [], chipJobs = [];
-  let weakWarned = false, firstYavru = true, showHelp = true;
+  let shots = [], popups = [], chipJobs = [], marks = [];
+  let weakWarned = false, firstYavru = true;
 
-  // CONFIG'de henüz olmayan değerler için yedek (Kişi 2 config'e eklediğinde oradan okunur)
-  const opt = (obj, key, def) => (obj && obj[key] != null ? obj[key] : def);
   const isCarrier = (u) => u.kind === 'isci' || u.kind === 'tasiyici';
   const isFighter = (u) => u.kind === 'asker' || u.kind === 'savasci';
   const unitName = (G, kind) => (G.cfg.population.foods[kind] ? G.cfg.population.foods[kind].ad : kind);
 
   City.unitCenter = (u) => ({ x: u.x, y: u.y });
+  City.isBuilt = (b) => b && b.built !== false;
+  City.isSelected = (G, e) => G.ui.selected === e || G.ui.selection.includes(e);
+  City.idleWorkers = (G) => G.units.filter((u) => u.owner === 'player' && u.hp > 0 && isCarrier(u) && u.state === 'idle' && !u.order);
+  City.unfedYavrus = (G) => G.units.filter((u) => u.kind === 'yavru' && u.hp > 0 && !u.food).sort((a, b) => a.id - b.id);
+  City.count = (G, kind) => G.units.filter((u) => u.owner === 'player' && u.hp > 0 && u.kind === kind).length;
 
   // ---------- Bina kurma ----------
   // Kurulacak binanın sol üst karesi: fare binanın ortasında olsun
@@ -66,16 +75,38 @@
     return { ok: true };
   };
 
+  // Temel atar; seçili işçiler (yoksa en yakın boştakiler) gelip kurar
   City.build = function (G, type, x, y) {
     const c = City.canPlace(G, type, x, y);
     if (!c.ok) { Game.msg(G, c.reason, '#e67e22'); return null; }
     const d = G.cfg.buildings[type];
     Game.pay(G, d.cost);
     const b = Game.addBuilding(G, type, x, y);
-    Game.msg(G, `${d.ad} kuruldu.`, '#9be7a1');
-    if (type === 'kule') Game.msg(G, `Kule her dalgada ${d.ozPerWave} Öz yakar ve meteorların bir kısmını çevresine çeker.`, '#9be7a1');
-    if (type === 'karakol') Game.msg(G, 'Karakolu seçip asker gönder (arayüz yoksa G tuşu).', '#9be7a1');
+    b.built = false; b.progress = 0; b.hp = Math.max(1, b.maxHp * 0.1);
+    let builders = G.ui.selection.filter((u) => isCarrier(u) && u.hp > 0);
+    if (!builders.length) {
+      const bc = Game.center(b);
+      builders = G.units.filter((u) => u.owner === 'player' && u.hp > 0 && isCarrier(u) && !u.carrying && (!u.order || u.order.type !== 'build'))
+        .sort((a, c2) => Game.dist(a.x, a.y, bc.x, bc.y) - Game.dist(c2.x, c2.y, bc.x, bc.y)).slice(0, G.cfg.population.autoBuilders);
+    }
+    builders.forEach((u) => (u.order = { type: 'build', b }));
+    Game.msg(G, builders.length ? `${d.ad} temeli atıldı, ${builders.length} işçi kuruyor.` : `${d.ad} temeli atıldı. Kurması için işçi gönder (işçi seç, binaya sağ tık).`, '#9be7a1');
     return b;
+  };
+
+  function finishBuilding(G, b) {
+    const d = G.cfg.buildings[b.type];
+    b.built = true; b.progress = d.buildTime;
+    Game.msg(G, `${d.ad} tamamlandı.`, '#9be7a1');
+    if (b.type === 'kule') Game.msg(G, `Kule her dalgada ${d.ozPerWave} Öz yakar ve meteorların bir kısmını çevresine çeker.`, '#9be7a1');
+    if (b.type === 'karakol') Game.msg(G, 'Askerleri karakola göndermek için asker seç ve karakola sağ tıkla.', '#9be7a1');
+  }
+
+  // Ev ya da Merkez panelindeki "yetiştir" düğmeleri: bekleyen en eski yavruyu besler
+  City.feedNext = function (G, tip) {
+    const y = City.unfedYavrus(G)[0];
+    if (!y) { Game.msg(G, 'Besin bekleyen yavru yok. Evler yumurtluyor, biraz bekle ya da yeni Ev kur.', '#e67e22'); return false; }
+    return City.feed(G, y, tip);
   };
 
   // ---------- Halk ----------
@@ -98,14 +129,14 @@
     const waiting = G.units.filter((u) => u.home === b.id && (u.kind === 'yumurta' || (u.kind === 'yavru' && !u.food))).length;
     if (waiting >= d.maxEggs) return;
     const p = spotNear(b);
-    Game.addUnit(G, { kind: 'yumurta', owner: 'player', x: p.x, y: p.y, hp: opt(G.cfg.population, 'eggHp', 20), home: b.id, t: G.cfg.population.hatchTime });
+    Game.addUnit(G, { kind: 'yumurta', owner: 'player', x: p.x, y: p.y, hp: G.cfg.population.eggHp, home: b.id, t: G.cfg.population.hatchTime });
   }
 
   function updateEgg(G, u, dt) {
     u.t -= dt;
     if (u.t > 0) return;
     u.kind = 'yavru'; u.food = null;
-    u.hp = u.maxHp = opt(G.cfg.population, 'yavruHp', 25);
+    u.hp = u.maxHp = G.cfg.population.yavruHp;
     if (firstYavru) {
       firstYavru = false;
       Game.msg(G, 'İlk yavru çıktı! Yavruya tıkla ve besin seç: Taş → İşçi, Öz → Asker, Öz + Taş → Bilimci.', '#f2c14e');
@@ -174,9 +205,63 @@
     if (Game.dist(u.x, u.y, s.x, s.y) > 0.05) Game.moveTo(u, s.x, s.y, speed * 0.6, dt);
   }
 
+  // Yürüme emri: varınca emir biter, varılan nokta birimin yeni "yeri" olur
+  function doMove(G, u, sp, dt) {
+    const o = u.order;
+    u.state = 'move'; u.face = Math.atan2(o.y - u.y, o.x - u.x);
+    if (Game.moveTo(u, o.x, o.y, sp, dt)) { u.anchor = { x: o.x, y: o.y }; u.order = null; u.state = 'idle'; }
+    if (u.carrying) { u.carrying.x = u.x; u.carrying.y = u.y; }
+  }
+
+  // İşçi emirleri: inşa et, buda, belirli kristali topla, yürü. true dönerse bu kare emirle geçti.
+  function workerOrder(G, u, dt, sp) {
+    const o = u.order;
+    if (!o) return false;
+    if (o.type === 'move') { doMove(G, u, sp, dt); return true; }
+    if (o.type === 'build') {
+      const b = o.b;
+      if (!G.buildings.includes(b) || b.hp <= 0 || City.isBuilt(b)) { u.order = null; return false; }
+      const c = Game.center(b);
+      if (Game.dist(u.x, u.y, c.x, c.y) > b.size / 2 + 0.75) { u.state = 'toBuild'; Game.moveTo(u, c.x, c.y, sp, dt); return true; }
+      const d = G.cfg.buildings[b.type];
+      u.state = 'build'; u.step = (u.step || 0) + dt * 10;
+      b.progress += dt;
+      b.hp = Math.min(b.maxHp, b.hp + (b.maxHp * 0.9 * dt) / d.buildTime);
+      if (b.progress >= d.buildTime) finishBuilding(G, b);
+      return true;
+    }
+    if (o.type === 'prune') {
+      if (!(window.Vines && Vines.has && Vines.has(G, o.tx, o.ty))) { u.order = null; return false; }
+      const tx = o.tx + 0.5, ty = o.ty + 0.5;
+      if (Game.dist(u.x, u.y, tx, ty) > 0.9) { u.state = 'toPrune'; Game.moveTo(u, tx, ty, sp, dt); return true; }
+      u.state = 'prune'; o.t = (o.t || 0) + dt; u.step = (u.step || 0) + dt * 10;
+      if (o.t >= G.cfg.vines.workerPruneTime) {
+        const ok = Vines.prune(G, o.tx, o.ty, { worker: true });
+        o.t = 0;
+        // bitişikteki bir sonraki sarmaşık karesine geç (AoE'deki gibi işçi işini sürdürür)
+        const next = ok && [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].map(([dx, dy]) => ({ tx: o.tx + dx, ty: o.ty + dy }))
+          .find((p) => Vines.has(G, p.tx, p.ty) && !(Vines.isRoot && Vines.isRoot(G, p.tx, p.ty)) && Game.dist(p.tx, p.ty, o.ox, o.oy) <= G.cfg.vines.workerPruneArea);
+        if (next) { o.tx = next.tx; o.ty = next.ty; } else u.order = null;
+      }
+      return true;
+    }
+    if (o.type === 'gather') {
+      const cr = o.crystal;
+      if (u.carrying || !G.crystals.includes(cr) || (cr.carriedBy && cr.carriedBy !== u.id)) { u.order = null; return false; }
+      if (u.target && u.target !== cr && u.target.claimedBy === u.id) u.target.claimedBy = null;
+      u.target = cr; cr.claimedBy = u.id;
+      u.anchor = { x: cr.x, y: cr.y }; // toplama bitince bu bölgede çalışmaya devam eder
+      u.order = null;
+      return false;
+    }
+    u.order = null;
+    return false;
+  }
+
   function updateCarrier(G, u, dt, mk) {
-    const sp = G.cfg.units.isci.speed * (u.kind === 'tasiyici' ? opt(G.cfg.colonies, 'tasiyiciSpeedMul', 1) : 1);
+    const sp = G.cfg.units.isci.speed * (u.kind === 'tasiyici' ? G.cfg.colonies.tasiyiciSpeedMul : 1);
     const mc = Game.center(mk);
+    if (workerOrder(G, u, dt, sp)) return;
     if (u.carrying) {
       const cr = u.carrying;
       if (!G.crystals.includes(cr) || cr.carriedBy !== u.id) { u.carrying = null; u.state = 'idle'; return; } // çalındı ya da düştü
@@ -194,7 +279,10 @@
     let cr = u.target;
     if (!cr || !G.crystals.includes(cr) || cr.carriedBy || cr.claimedBy !== u.id || threat(G, cr.x, cr.y)) {
       if (cr && cr.claimedBy === u.id) cr.claimedBy = null;
-      cr = Game.nearest(G.crystals, u.x, u.y, (k) => !k.carriedBy && !k.claimedBy && !threat(G, k.x, k.y) && !nearNest(G, k.x, k.y));
+      // Bir yere gönderilmiş işçi önce o bölgedeki kristallere bakar, yoksa en yakın kristale gider
+      const ok = (k) => !k.carriedBy && !k.claimedBy && !threat(G, k.x, k.y) && !nearNest(G, k.x, k.y);
+      const a = u.anchor, R = G.cfg.units.isci.gatherRadius;
+      cr = (a && Game.nearest(G.crystals, a.x, a.y, (k) => ok(k) && Game.dist(k.x, k.y, a.x, a.y) <= R)) || Game.nearest(G.crystals, u.x, u.y, ok);
       u.target = cr;
       if (cr) cr.claimedBy = u.id;
     }
@@ -207,7 +295,8 @@
       return;
     }
     u.state = 'idle';
-    idleNear(G, u, mc, 2.2, sp, dt);
+    if (u.anchor) { if (Game.dist(u.x, u.y, u.anchor.x, u.anchor.y) > 0.6) Game.moveTo(u, u.anchor.x, u.anchor.y, sp * 0.6, dt); }
+    else idleNear(G, u, mc, 2.2, sp, dt);
   }
 
   // Ölen birimlerin tuttuğu kristalleri ve çip rezervasyonlarını bırak
@@ -265,7 +354,21 @@
 
   function updateFighter(G, u, dt, mk, targets, weak) {
     const d = G.cfg.units.asker;
-    const dps = d.dps * (weak && u.kind === 'asker' ? opt(d, 'weakDpsMul', 0.5) : 1);
+    const dps = d.dps * (weak && u.kind === 'asker' ? d.weakDpsMul : 1);
+    const o = u.order;
+    if (o && o.type === 'move') { doMove(G, u, d.speed, dt); return; } // yürürken savaşmaz (AoE'deki gibi)
+    if (o && o.type === 'attack') {
+      const t = o.target;
+      const alive = t && t.hp > 0 && (G.enemies.includes(t) || (t.role && t.state !== 'fainted' && t.state !== 'chipped' && findMember(G, t.id)));
+      if (!alive) u.order = null;
+      else { u.state = 'fight'; engage(G, u, t, d, dps, dt); return; }
+    }
+    if (o && o.type === 'post') {
+      const k = o.b;
+      if (!G.buildings.includes(k) || k.hp <= 0) u.order = null;
+      else if (City.postCount(G, k) >= G.cfg.buildings.karakol.capacity && u.post !== k.id) { u.order = null; Game.msg(G, 'Karakol dolu.', '#e67e22'); }
+      else { u.post = k.id; u.anchor = null; u.order = null; }
+    }
     if (u.huntTarget) {
       const m = findMember(G, u.huntTarget);
       if (!m || m.hp <= 0 || m.state === 'fainted' || m.state === 'chipped') u.huntTarget = null;
@@ -273,13 +376,14 @@
     }
     const post = u.post ? G.buildings.find((b) => b.id === u.post && b.hp > 0) : null;
     if (u.post && !post) { u.post = null; Game.msg(G, 'Karakol yıkıldı, asker şehre dönüyor.', '#e74c3c'); }
-    const anchor = Game.center(post || mk);
-    const leash = post ? G.cfg.buildings.karakol.guardRadius + d.range : opt(d, 'cityGuardRadius', 10);
+    const anchor = post ? Game.center(post) : u.anchor || Game.center(mk);
+    const leash = post ? G.cfg.buildings.karakol.guardRadius + d.range : u.anchor ? d.holdGuardRadius : d.cityGuardRadius;
     const tgt = Game.nearest(targets, u.x, u.y, (t) =>
       Game.dist(t.x, t.y, anchor.x, anchor.y) <= leash || Game.dist(t.x, t.y, u.x, u.y) <= d.range + 1);
     if (tgt) { u.state = 'fight'; engage(G, u, tgt, d, dps, dt); return; }
     u.state = post ? 'post' : 'idle';
-    idleNear(G, u, anchor, post ? 1.1 : 2.8, d.speed / 0.6, dt);
+    if (u.anchor && !post) { if (Game.dist(u.x, u.y, anchor.x, anchor.y) > 0.6) Game.moveTo(u, anchor.x, anchor.y, d.speed, dt); }
+    else idleNear(G, u, anchor, post ? 1.1 : 2.8, d.speed / 0.6, dt);
   }
 
   City.postCount = (G, karakol) => G.units.filter((u) => u.post === karakol.id && u.hp > 0).length;
@@ -318,6 +422,8 @@
   // ---------- Bilimci ----------
   function updateScientist(G, u, dt, mk) {
     const sp = G.cfg.units.bilimci.speed;
+    if (u.order && u.order.type === 'move' && !u.chip) { doMove(G, u, sp, dt); return; }
+    if (u.order && u.order.type === 'lab') { u.anchor = null; u.order = null; }
     if (u.chip) {
       const m = u.chip.member;
       const exists = window.Colonies && Colonies.colonyOf && Colonies.colonyOf(G, m) && m.hp > 0 && m.state !== 'chipped';
@@ -336,7 +442,12 @@
       else Game.moveTo(u, m.x, m.y, sp, dt);
       return;
     }
-    const lab = Game.nearest(G.buildings, u.x, u.y, (b) => b.type === 'lab' && b.hp > 0);
+    if (u.anchor) { // bir yere gönderildi: orada bekler (laboratuvara sağ tıklayınca geri döner)
+      u.state = 'idle';
+      if (Game.dist(u.x, u.y, u.anchor.x, u.anchor.y) > 0.6) Game.moveTo(u, u.anchor.x, u.anchor.y, sp, dt);
+      return;
+    }
+    const lab = Game.nearest(G.buildings, u.x, u.y, (b) => b.type === 'lab' && b.hp > 0 && City.isBuilt(b));
     if (lab) {
       const s = slotAround(Game.center(lab), u.id, lab.size / 2 + 0.4);
       u.state = Game.moveTo(u, s.x, s.y, sp, dt) ? 'lab' : 'toLab';
@@ -347,13 +458,94 @@
   }
 
   // colonies.js çağırır; boşta bilimci yoksa false
-  City.orderChip = function (G, member, sure) {
-    const s = Game.nearest(G.units, member.x, member.y, (u) => u.owner === 'player' && u.kind === 'bilimci' && u.hp > 0 && !u.chip);
+  // sci verilirse o bilimci gider (seçili bilimciyle sağ tık), yoksa en yakın boştaki
+  City.orderChip = function (G, member, sure, sci) {
+    const s = sci && sci.kind === 'bilimci' && !sci.chip ? sci
+      : Game.nearest(G.units, member.x, member.y, (u) => u.owner === 'player' && u.kind === 'bilimci' && u.hp > 0 && !u.chip);
     if (!s) return false;
+    s.order = null; s.anchor = null;
     s.chip = { member, left: sure, total: sure };
     s.state = 'chipGo';
     chipJobs.push({ u: s, member });
     return true;
+  };
+
+  // ---------- Sağ tık emirleri ----------
+  function memberAt(G, wx, wy) {
+    let best = null, bd = 0.9;
+    G.colonies.forEach((col) => col.members.forEach((m) => {
+      const r = m.role === 'kralice' ? 1.4 : 0.9, d = Game.dist(m.x, m.y, wx, wy);
+      if (d < r && d < bd + (r - 0.9)) { bd = d; best = m; }
+    }));
+    return best;
+  }
+
+  // Seçili birimlere, imlecin altındaki şeye göre emir ver
+  City.command = function (G, units, info) {
+    units = units.filter((u) => u.owner === 'player' && u.hp > 0 && u.kind !== 'yumurta' && u.kind !== 'yavru');
+    if (!units.length) return false;
+    const { wx, wy, tx, ty } = info;
+    const fighters = units.filter(isFighter), carriers = units.filter(isCarrier), scis = units.filter((u) => u.kind === 'bilimci');
+    const clear = (u) => { u.order = null; u.huntTarget = null; };
+    const say = (x, y, color) => marks.push({ x, y, age: 0, color });
+
+    // 1) akıncı
+    const enemy = Game.nearest(G.enemies, wx, wy, (e) => e.hp > 0 && Game.dist(e.x, e.y, wx, wy) < 0.8);
+    if (enemy && fighters.length) {
+      fighters.forEach((u) => { clear(u); u.post = null; u.order = { type: 'attack', target: enemy }; });
+      say(enemy.x, enemy.y, G.cfg.colors.bocekDusman); return true;
+    }
+    // 2) koloni bireyi: askerler avlar, bilimci bayılmış bireye / kraliçeye çip takar
+    const m = memberAt(G, wx, wy);
+    if (m && window.Colonies) {
+      if (scis.length && (m.state === 'fainted' || m.role === 'kralice') && Colonies.tryChip) { Colonies.tryChip(G, m, scis[0]); say(m.x, m.y, G.cfg.colors.bilimci); return true; }
+      if (fighters.length && m.role !== 'kralice' && m.state !== 'fainted' && Colonies.hunt) {
+        fighters.forEach((u) => { clear(u); u.post = null; });
+        Colonies.hunt(G, m, fighters);
+        say(m.x, m.y, G.cfg.colors.bocekDusman); return true;
+      }
+    }
+    // 3) kristal: işçiler toplar
+    const cr = Game.nearest(G.crystals, wx, wy, (k) => !k.carriedBy && Game.dist(k.x, k.y, wx, wy) < 0.8);
+    if (cr && carriers.length) {
+      carriers.forEach((u) => { clear(u); u.order = { type: 'gather', crystal: cr }; });
+      say(cr.x, cr.y, G.cfg.colors.crystal);
+      units = units.filter((u) => !isCarrier(u));
+      if (!units.length) return true;
+    }
+    // 4) kendi binan: yarım binayı kur, karakola gir, laboratuvara dön
+    const b = Game.buildingAt(G, tx, ty);
+    if (b) {
+      const c = Game.center(b);
+      if (!City.isBuilt(b) && carriers.length) { carriers.forEach((u) => { clear(u); u.order = { type: 'build', b }; }); say(c.x, c.y, '#9be7a1'); return true; }
+      if (b.type === 'karakol' && fighters.length) {
+        let room = G.cfg.buildings.karakol.capacity - City.postCount(G, b);
+        fighters.forEach((u) => { if (u.post === b.id) return; if (room-- > 0) { clear(u); u.order = { type: 'post', b }; } });
+        say(c.x, c.y, '#9be7a1'); return true;
+      }
+      if (b.type === 'lab' && scis.length) { scis.forEach((u) => { clear(u); u.order = { type: 'lab' }; }); say(c.x, c.y, G.cfg.colors.bilimci); }
+    }
+    // 5) sarmaşık: işçiler budar
+    if (carriers.length && window.Vines && Vines.has && Vines.has(G, tx, ty) && !Vines.isRoot(G, tx, ty)) {
+      carriers.forEach((u) => { clear(u); u.order = { type: 'prune', tx, ty, ox: tx, oy: ty }; });
+      say(tx + 0.5, ty + 0.5, G.cfg.colors.vineLeaf); return true;
+    }
+    // 6) yer: birlikte, düzenli bir öbek halinde yürü
+    const n = units.length, cols = Math.ceil(Math.sqrt(n)), gap = 0.7;
+    units.forEach((u, i) => {
+      clear(u); u.post = null;
+      if (u.chip) return; // çip takan bilimciyi bölme
+      const gx = (i % cols) - (cols - 1) / 2, gy = Math.floor(i / cols) - (Math.ceil(n / cols) - 1) / 2;
+      const x = Math.max(0.5, Math.min(G.map.w - 0.5, wx + gx * gap)), y = Math.max(0.5, Math.min(G.map.h - 0.5, wy + gy * gap));
+      u.order = { type: 'move', x, y };
+    });
+    say(wx, wy, '#9be7a1');
+    return true;
+  };
+
+  // Birimi kendi haline bırak (Merkez çevresindeki işine döner)
+  City.release = function (G, units) {
+    units.forEach((u) => { u.order = null; u.anchor = null; u.huntTarget = null; });
   };
 
   // Oyuncu birimleri birbirinin içine girmesin
@@ -376,6 +568,22 @@
 
   function drawBuilding(ctx, G, b) {
     const T = G.map.tile, c = G.cfg.colors, px = b.x * T, py = b.y * T, s = b.size * T, cx = px + s / 2, cy = py + s / 2;
+    if (!City.isBuilt(b)) { // temel + iskele + ilerleme çubuğu
+      const d = G.cfg.buildings[b.type], pct = Math.min(1, b.progress / d.buildTime);
+      ctx.fillStyle = 'rgba(80,60,40,0.45)'; ctx.fillRect(px + 2, py + 2, s - 4, s - 4);
+      ctx.save(); ctx.globalAlpha = 0.35 + 0.65 * pct; ctx.beginPath(); ctx.rect(px, py + s * (1 - pct), s, s * pct); ctx.clip();
+      box(ctx, px + 3, py + 3, s - 6, s - 6, c.player, 'rgba(0,0,0,0.5)'); ctx.restore();
+      ctx.strokeStyle = '#8a6a44'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let k = 0; k <= b.size * 2; k++) { ctx.moveTo(px + (k * s) / (b.size * 2), py); ctx.lineTo(px + (k * s) / (b.size * 2), py + s); }
+      ctx.moveTo(px, py); ctx.lineTo(px + s, py + s); ctx.moveTo(px + s, py); ctx.lineTo(px, py + s);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(px, py + s + 3, s, 5);
+      ctx.fillStyle = '#f2c14e'; ctx.fillRect(px + 1, py + s + 4, (s - 2) * pct, 3);
+      label(ctx, `${d.ad} · %${Math.floor(pct * 100)}`, cx, py - 8);
+      if (G.ui.selected === b) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(px, py, s, s); }
+      return;
+    }
     ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.fillRect(px + 5, py + 6, s - 5, s - 5); // gölge
     switch (b.type) {
       case 'merkez': { // teraslı taş yapı
@@ -493,17 +701,36 @@
         ctx.beginPath(); ctx.arc(px, py, T * 0.3 + Math.sin(G.time * 5) * 2, 0, Math.PI * 2); ctx.stroke();
         label(ctx, '?', px, py - T * 0.42);
       }
+    } else if (u.kind === 'tasiyici' || u.kind === 'savasci') {
+      // çiplenmiş böcekleri colonies.js çizer; burada yalnızca seçim ve taşınan kristal
+      if (u.carrying && window.Meteors) Meteors.drawCrystal(ctx, G, px, py - T * 0.45, u.carrying.oz, G.time);
     } else {
-      const r = T * 0.26;
-      ctx.fillStyle = c[u.kind] || '#fff'; ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      if (isFighter(u)) { // mızrak
-        const a = u.face || 0;
-        ctx.strokeStyle = '#eee'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(a) * r * 1.7, py + Math.sin(a) * r * 1.7); ctx.stroke();
+      // Ovik: gölge, takım halkası, gövde, baş ve kişiliğe göre alet
+      const r = T * 0.22, sel = City.isSelected(G, u);
+      const moving = u.state === 'move' || u.state === 'toCrystal' || u.state === 'carry' || u.state === 'toBuild' || u.state === 'toPrune' || u.state === 'toLab' || u.state === 'chipGo';
+      if (moving) u.step = (u.step || 0) + 0.25;
+      const bob = moving ? Math.abs(Math.sin(u.step || 0)) * 2 : 0;
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(px + 1, py + r * 0.9, r * 1.05, r * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = sel ? '#ffffff' : c.player; ctx.lineWidth = sel ? 2 : 1.5;
+      ctx.beginPath(); ctx.ellipse(px, py + r * 0.85, r * 1.15, r * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
+      const body = ctx.createRadialGradient(px - r * 0.3, py - r * 0.4 - bob, 1, px, py - bob, r * 1.2);
+      body.addColorStop(0, '#ffffff'); body.addColorStop(0.25, c[u.kind] || '#fff'); body.addColorStop(1, 'rgba(0,0,0,0.55)');
+      ctx.fillStyle = c[u.kind] || '#fff'; ctx.beginPath(); ctx.ellipse(px, py - bob, r * 0.85, r, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = body; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = c.ovikTen; ctx.beginPath(); ctx.arc(px, py - r * 1.05 - bob, r * 0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); // baş
+      const a = u.face || 0;
+      if (isFighter(u)) { // mızrak ve kalkan
+        ctx.strokeStyle = '#d9d2c3'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(px - Math.cos(a) * r * 0.6, py - bob - Math.sin(a) * r * 0.6); ctx.lineTo(px + Math.cos(a) * r * 2, py - bob + Math.sin(a) * r * 2); ctx.stroke();
+        ctx.fillStyle = c.player; ctx.beginPath(); ctx.arc(px - Math.sin(a) * r * 0.8, py - bob + Math.cos(a) * r * 0.5, r * 0.45, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       }
-      if (u.kind === 'bilimci') { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px, py, r * 0.35, 0, Math.PI * 2); ctx.fill(); }
-      if (u.kind === 'isci') { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(px - r * 0.4, py - r * 0.4, r * 0.8, r * 0.8); }
+      if (u.kind === 'bilimci') { ctx.fillStyle = c.vineBud; ctx.beginPath(); ctx.arc(px + r * 0.2, py - r * 1.1 - bob, r * 0.2, 0, Math.PI * 2); ctx.fill(); }
+      if (u.kind === 'isci') { // kazma; çalışırken sallanır
+        const sw = u.state === 'build' || u.state === 'prune' ? Math.sin((u.step || 0) * 1.5) * 0.9 : 0.4;
+        ctx.strokeStyle = '#6b4a2b'; ctx.lineWidth = 2;
+        const hx = px + r * 0.7, hy = py - bob;
+        ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + Math.cos(-1 + sw) * r * 1.4, hy + Math.sin(-1 + sw) * r * 1.4); ctx.stroke();
+      }
       if (u.post) { ctx.fillStyle = c.asker; ctx.fillRect(px + r * 0.6, py - r * 1.4, 2, r); ctx.fillRect(px + r * 0.6, py - r * 1.4, 6, 4); }
       if (u.chip && u.state === 'chip') {
         ring(ctx, px, py, r + 5, 1 - u.chip.left / u.chip.total, c.bilimci);
@@ -517,10 +744,14 @@
       ctx.fillStyle = '#300'; ctx.fillRect(px - w / 2, py - T * 0.45, w, 3);
       ctx.fillStyle = '#4caf50'; ctx.fillRect(px - w / 2, py - T * 0.45, w * Math.max(0, u.hp / u.maxHp), 3);
     }
-    if (G.ui.selected === u) {
+    if ((u.kind === 'yavru' || u.kind === 'tasiyici' || u.kind === 'savasci') && City.isSelected(G, u)) {
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(px, py, T * 0.4, 0, Math.PI * 2); ctx.stroke();
-      if (u.kind === 'yavru' && !u.food) label(ctx, 'Z İşçi · X Asker · C Bilimci', px, py + T * 0.8);
+      ctx.beginPath(); ctx.arc(px, py, T * 0.45, 0, Math.PI * 2); ctx.stroke();
+    }
+    // seçili birimin gittiği yer
+    if (City.isSelected(G, u) && u.order && u.order.type === 'move') {
+      ctx.strokeStyle = 'rgba(155,231,161,0.5)'; ctx.setLineDash([3, 4]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(u.order.x * T, u.order.y * T); ctx.stroke(); ctx.setLineDash([]);
     }
   }
 
@@ -552,20 +783,23 @@
   Game.register({
     name: 'city',
     init(G) {
-      shots = []; popups = []; chipJobs = []; weakWarned = false; firstYavru = true;
+      shots = []; popups = []; chipJobs = []; marks = []; weakWarned = false; firstYavru = true;
       const s = G.cfg.start;
       Game.addBuilding(G, 'merkez', s.merkez.x, s.merkez.y);
       Game.addBuilding(G, 'ev', s.ev.x, s.ev.y);
       const mk = Game.center(Game.merkez(G));
       for (let i = 0; i < s.isci; i++) {
-        Game.addUnit(G, { kind: 'isci', owner: 'player', x: mk.x + 1.5, y: mk.y + i - 0.5, hp: G.cfg.units.isci.hp, state: 'idle', carrying: null });
+        Game.addUnit(G, { kind: 'isci', owner: 'player', x: mk.x + 1.6, y: mk.y + i * 0.7 - 0.7, hp: G.cfg.units.isci.hp, state: 'idle', carrying: null });
+      }
+      for (let i = 0; i < (s.asker || 0); i++) {
+        Game.addUnit(G, { kind: 'asker', owner: 'player', x: mk.x - 1.6, y: mk.y + i * 0.7, hp: G.cfg.units.asker.hp, state: 'idle' });
       }
     },
     update(G, dt) {
       const mk = Game.merkez(G);
       if (!mk) return;
       G.buildings.forEach((b) => {
-        if (b.hp <= 0) return;
+        if (b.hp <= 0 || !City.isBuilt(b)) return;
         const d = G.cfg.buildings[b.type];
         if (d.tasPerSec) G.res.tas += d.tasPerSec * dt;
         if (b.type === 'ev') updateHouse(G, b, dt);
@@ -581,13 +815,13 @@
         else if (isFighter(u)) updateFighter(G, u, dt, mk, targets, weak);
         else if (u.kind === 'bilimci') updateScientist(G, u, dt, mk);
       }
-      G.buildings.forEach((b) => { if (b.type === 'taret' && b.hp > 0) updateTurret(G, b, dt, targets); });
+      G.buildings.forEach((b) => { if (b.type === 'taret' && b.hp > 0 && City.isBuilt(b)) updateTurret(G, b, dt, targets); });
       separate(G);
       shots.forEach((s) => (s.age += dt)); shots = shots.filter((s) => s.age < 0.15);
       popups.forEach((p) => (p.age += dt)); popups = popups.filter((p) => p.age < 1.5);
       // Seçili birim ya da bina artık yoksa seçimi bırak
       const sel = G.ui.selected;
-      if (sel && ((sel.kind && !G.units.includes(sel)) || (sel.size && !G.buildings.includes(sel)) || (sel.hp != null && sel.hp <= 0))) G.ui.selected = null;
+      if (sel && ((sel.kind && !G.units.includes(sel)) || (sel.size && !G.buildings.includes(sel)) || (sel.hp != null && sel.hp <= 0))) G.ui.selected = G.ui.selection[0] || null;
     },
     draw(ctx, G) {
       const T = G.map.tile;
@@ -600,42 +834,55 @@
       ctx.globalAlpha = 1;
       popups.forEach((p) => { ctx.globalAlpha = 1 - p.age / 1.5; label(ctx, p.text, p.x * T, p.y * T - p.age * 25); });
       ctx.globalAlpha = 1;
+      // sağ tık işaretleri: küçülen halka
+      marks.forEach((m) => {
+        m.age += 1 / 60;
+        const k = m.age / 0.5;
+        ctx.strokeStyle = m.color; ctx.globalAlpha = Math.max(0, 1 - k); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(m.x * T, m.y * T, T * 0.5 * (1 - k * 0.6), T * 0.25 * (1 - k * 0.6), 0, 0, Math.PI * 2); ctx.stroke();
+      });
+      ctx.globalAlpha = 1; marks = marks.filter((m) => m.age < 0.5);
       if (G.ui.buildMode) drawPreview(ctx, G);
-    },
-    drawUI(ctx, G) {
-      if (!showHelp) return;
-      const text = 'Kur: E Ev · O Taş Ocağı · K Çekim Kulesi · R Karakol · T Taret · L Laboratuvar · sağ tık iptal   |   Yavru: Z İşçi · X Asker · C Bilimci   |   Karakol: G asker gönder   |   H bu satırı gizle';
-      ctx.font = '12px sans-serif';
-      const w = ctx.measureText(text).width + 16, y = ctx.canvas.height - 26;
-      ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(8, y, w, 20);
-      ctx.fillStyle = '#ddd'; ctx.fillText(text, 16, y + 14);
     },
     onClick(G, info) {
       if (G.ui.buildMode && G.cfg.buildings[G.ui.buildMode]) {
         if (info.button === 2) { G.ui.buildMode = null; return true; }
         if (info.button !== 0) return false;
         const p = City.placeAt(G, G.ui.buildMode);
-        if (City.build(G, G.ui.buildMode, p.x, p.y)) G.ui.buildMode = null;
+        if (City.build(G, G.ui.buildMode, p.x, p.y) && !info.shift) G.ui.buildMode = null; // Shift ile art arda kur
         return true;
       }
+      if (info.button === 2) return City.command(G, G.ui.selection, info);
       if (info.button !== 0) return false;
       let best = null, bd = 0.55;
       G.units.forEach((u) => {
-        if (u.owner !== 'player') return;
+        if (u.owner !== 'player' || u.kind === 'yumurta') return;
         const d = Game.dist(u.x, u.y, info.wx, info.wy);
         if (d < bd) { bd = d; best = u; }
       });
-      if (best) { G.ui.selected = best; return true; }
+      if (best) {
+        if (info.shift) { // Shift: seçime ekle / çıkar
+          const i = G.ui.selection.indexOf(best);
+          if (i >= 0) G.ui.selection.splice(i, 1); else G.ui.selection.push(best);
+          G.ui.selected = G.ui.selection[0] || null;
+        } else { G.ui.selection = [best]; G.ui.selected = best; }
+        return true;
+      }
       const b = Game.buildingAt(G, info.tx, info.ty);
-      if (b) { G.ui.selected = b; return true; }
+      if (b) { G.ui.selected = b; G.ui.selection = []; return true; }
       return false;
     },
     onKey(G, key) {
       const k = key.toLowerCase(), sel = G.ui.selected;
       if (BUILD_KEYS[k]) { G.ui.buildMode = G.ui.buildMode === BUILD_KEYS[k] ? null : BUILD_KEYS[k]; return; }
-      if (FOOD_KEYS[k] && sel && sel.kind === 'yavru') City.feed(G, sel, FOOD_KEYS[k]);
+      if (FOOD_KEYS[k]) { if (sel && sel.kind === 'yavru') City.feed(G, sel, FOOD_KEYS[k]); else City.feedNext(G, FOOD_KEYS[k]); }
       else if (k === 'g' && sel && sel.type === 'karakol') City.sendSoldier(G, sel);
-      else if (k === 'h') showHelp = !showHelp;
+      else if (k === '.') { // AoE: boştaki işçiyi bul
+        const idle = City.idleWorkers(G);
+        if (!idle.length) { Game.msg(G, 'Boşta işçi yok.', '#9be7a1'); return; }
+        const u = idle[(City._idleI = ((City._idleI || 0) + 1) % idle.length)];
+        G.ui.selection = [u]; G.ui.selected = u; Game.centerOn(G, u.x, u.y);
+      }
     },
   });
 })();

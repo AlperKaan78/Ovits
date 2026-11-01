@@ -79,11 +79,12 @@
   }
 
   // Budanabilir mi? { ok, reason }
-  Vines.canPrune = function (G, tx, ty) {
+  // opts.worker: işçi yerinde budar, yakında bina gerekmez
+  Vines.canPrune = function (G, tx, ty, opts) {
     const vc = G.cfg.vines;
     if (!Vines.has(G, tx, ty)) return { ok: false, reason: '' };
     if (Vines.isRoot(G, tx, ty)) return { ok: false, reason: 'Kök budanamaz' };
-    const near = G.buildings.some((b) => {
+    const near = (opts && opts.worker) || G.buildings.some((b) => {
       if (b.hp <= 0) return false;
       const c = Game.center(b);
       return Game.dist(c.x, c.y, tx + 0.5, ty + 0.5) <= vc.pruneRange;
@@ -93,8 +94,8 @@
     return { ok: true, reason: '' };
   };
 
-  Vines.prune = function (G, tx, ty) {
-    const c = Vines.canPrune(G, tx, ty);
+  Vines.prune = function (G, tx, ty, opts) {
+    const c = Vines.canPrune(G, tx, ty, opts);
     if (!c.ok) { if (c.reason) Game.msg(G, 'Budanamıyor: ' + c.reason + '.', '#e67e22'); return false; }
     Game.pay(G, G.cfg.vines.pruneCost);
     removeTile(G, Game.idx(G, tx, ty));
@@ -328,7 +329,7 @@
 
   function drawHover(ctx, G) {
     const m = G.ui.mouse, T = G.map.tile;
-    if (G.ui.buildMode || !Vines.has(G, m.tx, m.ty)) return;
+    if (G.ui.buildMode || G.ui.tool !== 'prune' || !Vines.has(G, m.tx, m.ty)) return;
     const root = Vines.isRoot(G, m.tx, m.ty);
     const c = root ? Vines.canPoison(G, m.tx, m.ty) : Vines.canPrune(G, m.tx, m.ty);
     const col = c.ok ? G.cfg.colors.pruneOk : G.cfg.colors.pruneNo;
@@ -360,7 +361,7 @@
       ctx.globalAlpha = 1;
     }
     // gösterge (sağ üst, üst çubuğun altında)
-    const a = Vines.anger(G), W = 150, x = cv.width - W - 12, y = 36;
+    const a = Vines.anger(G), W = 150, x = cv.width - W - 12, y = (G.ui.hudTop || 0) + 8;
     ctx.fillStyle = c.panel; ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x, y, W, 40, 6); else ctx.rect(x, y, W, 40);
     ctx.fill();
@@ -424,9 +425,14 @@
       drawHover(ctx, G);
     },
     drawUI(ctx, G) { drawOverlay(ctx, G); },
+    onKey(G, key) { if (key.toLowerCase() === 'b') { G.ui.tool = G.ui.tool === 'prune' ? null : 'prune'; G.ui.buildMode = null; } },
+    // Budama aracı (arayüzdeki "Buda" düğmesi ya da B tuşu): sol tık budar / köke zehir, sağ tık araçtan çıkar.
+    // Araç kapalıyken sarmaşığa işçilerle sağ tıklanır (city.js işçileri budamaya gönderir).
     onClick(G, info) {
-      if (G.ui.buildMode || info.button !== 0) return false;
-      if (!Vines.has(G, info.tx, info.ty)) return false;
+      if (G.ui.tool !== 'prune' || G.ui.buildMode) return false;
+      if (info.button === 2) { G.ui.tool = null; return true; }
+      if (info.button !== 0) return false;
+      if (!Vines.has(G, info.tx, info.ty)) return true;
       if (Vines.isRoot(G, info.tx, info.ty)) Vines.poison(G, info.tx, info.ty);
       else Vines.prune(G, info.tx, info.ty);
       return true;

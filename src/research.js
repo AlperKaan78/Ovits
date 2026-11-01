@@ -6,7 +6,7 @@
 (function () {
   const Research = (window.Research = {});
   const def = (G, id) => G.cfg.research.find((r) => r.id === id);
-  const lab = (G) => G.buildings.find((b) => b.type === 'lab' && b.hp > 0);
+  const lab = (G) => G.buildings.find((b) => b.type === 'lab' && b.hp > 0 && b.built !== false);
   const inPipeline = (G, id) => G.research.done[id] || G.research.current === id || G.research.queue.includes(id);
 
   // Laboratuvarda çalışan bilimci sayısı (city.js bilimciye state = 'lab' yazar)
