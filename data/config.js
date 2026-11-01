@@ -10,7 +10,7 @@ window.CONFIG = {
     oz: 20, tas: 200, kitin: 0,
     merkez: { x: 7, y: 19 },   // sol üst karesi (Merkez 2x2)
     ev: { x: 4, y: 16 },
-    isci: 2,
+    isci: 3, asker: 1, // AoE gibi küçük bir başlangıç ekibi
   },
 
   win: { oz: 500 },
@@ -23,6 +23,7 @@ window.CONFIG = {
     isci: '#f1e6cf', asker: '#c0392b', bilimci: '#2e86de',
     bocekNotr: '#4caf50', bocekDusman: '#e74c3c', bocekCipli: '#e67e22',
     akinci: '#2d2d2d', text: '#ffffff',
+    ovikTen: '#e8c9a0', auroraFar2: 'rgba(170,110,240,0.22)',
     tasiyici: '#e67e22', savasci: '#d35400', yuva: '#2a1b36',
     // sarmaşık ayrıntıları
     vineUnder: 'rgba(52,18,78,0.30)', vineStemDark: '#3a1652', vineStemLight: '#c08ae0',
@@ -37,52 +38,57 @@ window.CONFIG = {
   },
 
   buildings: {
-    merkez:  { ad: 'Merkez',        cost: null,                 hp: 1000, size: 2, tasPerSec: 1 },
-    ev:      { ad: 'Ev',            cost: { tas: 50 },          hp: 150,  size: 1, eggEvery: 30, maxEggs: 2 },
-    ocak:    { ad: 'Taş Ocağı',     cost: { tas: 60 },          hp: 150,  size: 1, tasPerSec: 2 },
-    kule:    { ad: 'Çekim Kulesi',  cost: { tas: 120, oz: 40 }, hp: 300,  size: 1, minDistFromMerkez: 15, ozPerWave: 10, pullChance: 0.7, landRadius: 3 }, // Denge: 20 Öz ile başlangıçta hemen kurulabiliyordu; 40 Öz ilk 2-3 dalganın kristalini ister -> 3-5. dakika
-    karakol: { ad: 'Karakol',       cost: { tas: 80 },          hp: 250,  size: 1, capacity: 3, guardRadius: 6 },
-    taret:   { ad: 'Taret',         cost: { tas: 70, oz: 10 },  hp: 200,  size: 1, range: 5, dps: 10 },
-    lab:     { ad: 'Laboratuvar',   cost: { tas: 120, oz: 30 }, hp: 200,  size: 2, scientistBonus: 0.5 },
+    merkez:  { ad: 'Merkez',        cost: null,                 hp: 1000, size: 2, tasPerSec: 1, buildTime: 0 },
+    ev:      { ad: 'Ev',            cost: { tas: 50 },          hp: 150,  size: 1, eggEvery: 40, maxEggs: 2, buildTime: 12 },
+    ocak:    { ad: 'Taş Ocağı',     cost: { tas: 60 },          hp: 150,  size: 1, tasPerSec: 2, buildTime: 15 },
+    kule:    { ad: 'Çekim Kulesi',  cost: { tas: 120, oz: 40 }, hp: 300,  size: 1, minDistFromMerkez: 15, ozPerWave: 10, pullChance: 0.7, landRadius: 3, buildTime: 25 }, // Denge: 20 Öz ile başlangıçta hemen kurulabiliyordu; 40 Öz ilk 2-3 dalganın kristalini ister -> 3-5. dakika
+    karakol: { ad: 'Karakol',       cost: { tas: 80 },          hp: 250,  size: 1, capacity: 3, guardRadius: 6, buildTime: 15 },
+    taret:   { ad: 'Taret',         cost: { tas: 70, oz: 10 },  hp: 200,  size: 1, range: 5, dps: 10, buildTime: 12 },
+    lab:     { ad: 'Laboratuvar',   cost: { tas: 120, oz: 30 }, hp: 200,  size: 2, scientistBonus: 0.5, buildTime: 30 }, // buildTime: tek işçinin kurma süresi (sn); işçi sayısıyla kısalır
   },
 
   population: {
     hatchTime: 20,   // yumurta -> yavru
     growTime: 10,    // besin seçildikten sonra -> yetişkin
+    eggHp: 20, yavruHp: 25,
+    autoBuilders: 2, // işçi seçmeden bina kurulunca gelen en yakın işçi sayısı
     foods: {
       isci:    { ad: 'İşçi',    cost: { tas: 10 } },
-      asker:   { ad: 'Asker',   cost: { oz: 5 } },
-      bilimci: { ad: 'Bilimci', cost: { oz: 5, tas: 10 } },
+      asker:   { ad: 'Asker',   cost: { oz: 10 } },          // Denge: 5'ten 10'a; Öz'ün asıl kullanım alanı ordu olsun
+      bilimci: { ad: 'Bilimci', cost: { oz: 10, tas: 15 } },
     },
   },
 
   units: {
-    isci:    { hp: 40, speed: 2.0 },
-    asker:   { hp: 60, speed: 2.0, range: 4, dps: 8, upkeepPerMin: 1, outpostUpkeepPerMin: 2 },
+    isci:    { hp: 40, speed: 2.0, gatherRadius: 8 }, // gatherRadius: bir yere gönderilen işçinin orada kristal arama yarıçapı
+    asker:   { hp: 60, speed: 2.0, range: 4, dps: 8, upkeepPerMin: 1, outpostUpkeepPerMin: 2,
+               weakDpsMul: 0.5, cityGuardRadius: 10, holdGuardRadius: 6 }, // holdGuardRadius: bir yere gönderilen askerin orayı koruduğu yarıçap
     bilimci: { hp: 40, speed: 2.0 },
   },
 
   meteors: {
     firstWave: 60, interval: 45,
     auroraTime: 15, focusTime: 5, auroraRadius: 5,
-    baseCount: 4, growEvery: 3, maxCount: 8, devEvery: 6,
+    baseCount: 4, growEvery: 4, maxCount: 8, devEvery: 6, // Denge: growEvery 3'ten 4'e; bot testinde zafer 12,9 dk'da geliyordu
+    citySafeUntil: 360, citySafeRadius: 9, // ilk 6 dakika Merkez'in 9 kare çevresine meteor düşmez
     types: {
-      kaya: { radius: 1.5, damage: 80,  oz: 15 },
+      kaya: { radius: 1.5, damage: 80,  oz: 10 }, // Denge: 15 Öz ile 500 Öz zaferi 9-10. dakikada geliyordu; hedef 15-20 dk
       dev:  { radius: 3.0, damage: 200, oz: 50 },
     },
   },
 
   vines: {
     roots: [{ x: 46, y: 8 }, { x: 48, y: 20 }, { x: 46, y: 32 }],
-    spreadEvery: 7, spreadChance: 0.3, maxCover: 0.6, westBias: 0.55, // westBias: yayılırken batıya (şehre) gitme olasılığı
+    spreadEvery: 7, spreadChance: 0.22, maxCover: 0.6, westBias: 0.55, // westBias: yayılırken batıya (şehre) gitme olasılığı
     damagePerSec: 2, pruneCost: { tas: 5 }, pruneRange: 6,
+    workerPruneTime: 1.5, workerPruneArea: 3, // işçi bir kareyi bu kadar sn'de budar ve tıklanan yerin bu kadar karesine kadar devam eder
     growAnim: 1.5, // yeni sarmaşık karesinin büyüme animasyonu (sn, yalnızca görüntü)
     // Sarmaşık Öfkesi (GDD 7): budama ve zehir öfkeyi artırır; tam öfkede yayılma (1 + spreadMul) kat
     anger: { max: 100, perPrune: 3, perPoison: 30, decayPerSec: 0.25, spreadMul: 1, warnAt: 0.7 },
     // Gece-gündüz (GDD 2): cycle saniyelik bir günün son 'part' kadarı gece; gece yayılma spreadMul kat
-    night: { cycle: 240, part: 0.35, ramp: 15, spreadMul: 1.6 },
+    night: { cycle: 240, part: 0.35, ramp: 15, spreadMul: 1.4 },
     // Meteor tozu (GDD 7): kristallerin ve Çekim Kulesi'nin radius kare çevresinde yayılma spreadMul kat
-    dust: { radius: 4, spreadMul: 2 },
+    dust: { radius: 4, spreadMul: 1.6 },
     // Kök Zehri (araştırma): köke tıklanınca cost ödenir; kök ve dalları her kademede witherStep sn arayla kurur
     poison: { cost: { oz: 25 }, witherStep: 0.25 },
   },
@@ -118,6 +124,8 @@ window.CONFIG = {
 
   enemies: {
     firstRaid: 180, interval: 120, baseSize: 3, growPerRaid: 1,
-    hp: 50, speed: 1.8, range: 1.5, dps: 8, bounty: { oz: 5 },
+    hp: 50, speed: 1.8, range: 1.2, dps: 8, bounty: { oz: 5 },
+    warnTime: 20, aggroRadius: 3, stealTime: 4, // stealTime: yerdeki kristali sökme süresi (sn)
+    // warnTime: akından kaç sn önce uyarı; aggroRadius: bu yakındaki askere döner
   },
 };

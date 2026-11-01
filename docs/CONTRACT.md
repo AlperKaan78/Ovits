@@ -51,7 +51,7 @@ Başka modüllerin çağırması gereken fonksiyonları `window.City`, `window.C
 | `G.crystals` | Yerdeki Öz kristalleri `{ id, x, y, oz, carriedBy }` |
 | `G.research` | `{ done:{}, queue:[], current, progress }` |
 | `G.messages` | `{ text, color, t }` (Game.msg ile eklenir) |
-| `G.ui` | `{ buildMode, selected, mouse }` |
+| `G.ui` | `{ buildMode, selected, selection, tool, drag, hudTop, hudBottom, mouse }` — `selection`: seçili oyuncu birimleri (kutu seçimi), `selected`: ilk birim ya da tek seçilen bina / koloni bireyi, `tool`: `'prune'` (budama aracı) |
 | `G.flags` | Paylaşılan küçük değerler: `nextWaveIn`, `nextRaidIn`; vines.js yazar: `vineCover`, `vineAnger` (0..1), `night` (0..1, gece karartmasını vines.js çizer) |
 
 Birim alanları:
@@ -61,6 +61,13 @@ Birim alanları:
 - Koloni bireyi seçilince `G.ui.selected = { type: 'member', member, colony }`; `member.state`: `'wander'`, `'attack'`, `'flee'` (yuvaya kaçıyor), `'fainted'`. Koloninin `ad` (Taşkabuk / Yaprakçı) ve `type` alanları vardır.
 - Çiplenen birimin `fromColony` alanı koloni kimliğidir; Yaprakçı'dan gelenler üstünden geçtikleri sarmaşığı kendiliğinden yer (colonies.js).
 - İşçi ve taşıyıcının `carrying` alanı taşıdığı kristal ya da `null`; laboratuvarda çalışan bilimcinin `state` alanı `'lab'` (research.js hız için sayar).
+
+- Binanın `built` alanı `false` ise inşaat sürüyor (`progress` saniye); kurulmamış bina üretmez, ateş etmez, kuleyse meteor çekmez. Eski binalarda alan yoksa kurulu sayılır (`City.isBuilt(b)`).
+- Oyuncu biriminin `order` alanı (`move`, `attack`, `gather`, `build`, `prune`, `post`, `lab`) sağ tık emridir; `anchor` gönderildiği yerdir.
+
+## Girdi (AoE tarzı)
+
+Sol tık / sürükle: seç (core.js kutu seçimini yapar). Sağ tık: modüllerin `onClick`'i `button: 2` ile çağrılır; city.js seçili birimlere `City.command` ile emir verir. Bir modül `onMouseDown(G, info)` içinde `true` dönerse fare onda kalır ve `onMouseDrag` / `onMouseUp` alır (ui.js paneli ve mini harita). `Game.centerOn(G, x, y)` kamerayı bir kareye ortalar.
 
 Konumlar **kare** cinsindendir ve ondalıklı olabilir (birimler için merkez noktası).
 
@@ -76,13 +83,14 @@ Konumlar **kare** cinsindendir ve ondalıklı olabilir (birimler için merkez no
 | --- | --- | --- |
 | `City.feed(G, yavru, tip)` (tip: `'isci'`, `'asker'`, `'bilimci'`) | Kişi 1 | ui.js |
 | `City.sendSoldier(G, karakol)` | Kişi 1 | ui.js |
-| `City.orderChip(G, member, sure)` (sure saniye; boşta bilimci yoksa `false` döner) | Kişi 1 | colonies.js |
-| `Colonies.hunt(G, member)` | Kişi 2 | ui.js |
+| `City.orderChip(G, member, sure, bilimci?)` (sure saniye; boşta bilimci yoksa `false` döner) | Kişi 1 | colonies.js |
+| `City.command(G, birimler, info)`, `City.release(G, birimler)`, `City.feedNext(G, tip)`, `City.idleWorkers(G)`, `City.unfedYavrus(G)`, `City.isBuilt(b)`, `City.guardedAt(G, x, y)` | Kişi 1 | ui.js, enemies.js |
+| `Colonies.hunt(G, member, askerler?)` | Kişi 2 | ui.js, city.js (sağ tık) |
 | `Colonies.chipDone(G, member)` (bilimci çipi bitirince birey oyuncuya geçer) | Kişi 2 | city.js |
 | `Vines.seed(G, x, y, r)` (r kare yarıçapında hızlı sarmaşık filizlenmesi; ör. kara meteor) | Kişi 2 | meteors.js (isteğe bağlı) |
 | `Research.moveUp(G, id)`, `Research.cancel(G, id)` (sırayı değiştir / iptal et, bedel iade) | Kişi 2 | ui.js (laboratuvar paneli) |
 | `Colonies.hostileMembers(G)` (avlanan birey listenin başında) | Kişi 2 | city.js (askerler, taretler) |
-| `Colonies.tryChip(G, member)` ("Çiple" düğmesi; uygun değilse nedenini mesaj olarak yazar) | Kişi 2 | ui.js |
+| `Colonies.tryChip(G, member, bilimci?)` ("Çiple" düğmesi; uygun değilse nedenini mesaj olarak yazar) | Kişi 2 | ui.js, city.js (sağ tık) |
 | `Colonies.canChip(G, member)` → `{ ok, reason }`, `Colonies.chipTimeFor(G, member)` | Kişi 2 | ui.js |
 | `Research.info(G)` → `{ ad, pct, speed, queue }` ya da `null` | Kişi 2 | ui.js |
 | `Vines.prune(G, tx, ty)`, `Vines.has(G, tx, ty)` | Kişi 2 | (sarmaşığa tıklamayı vines.js kendisi yakalar) |

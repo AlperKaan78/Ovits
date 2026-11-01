@@ -82,15 +82,15 @@
     return out;
   };
 
-  // Oyuncu bir bireyi avlamak istedi
-  Colonies.hunt = function (G, member) {
+  // Oyuncu bir bireyi avlamak istedi. soldiers verilirse (seçili askerler) onlar gider, yoksa en yakın boştakiler.
+  Colonies.hunt = function (G, member, soldiers) {
     const col = Colonies.colonyOf(G, member);
     if (!col || !active(member) || member.role === 'kralice') return false;
     anger(G, col);
     col.members.forEach((m) => (m.hunted = false));
     member.hunted = true;
     // En yakın boştaki askerleri bu bireye yönlendir (city.js asker davranışı u.huntTarget'a bakar)
-    const soldiers = G.units
+    if (!soldiers || !soldiers.length) soldiers = G.units
       .filter((u) => u.owner === 'player' && (u.kind === 'asker' || u.kind === 'savasci') && u.hp > 0 && !u.post)
       .sort((a, b) => Game.dist(a.x, a.y, member.x, member.y) - Game.dist(b.x, b.y, member.x, member.y))
       .slice(0, cc(G).huntSoldiers);
@@ -124,12 +124,12 @@
   };
 
   // Arayüzün "Çiple" düğmesi bunu çağırır
-  Colonies.tryChip = function (G, member) {
+  Colonies.tryChip = function (G, member, sci) {
     const c = Colonies.canChip(G, member);
     if (!c.ok) { Game.msg(G, c.reason, '#e67e22'); return false; }
     if (!(window.City && City.orderChip)) { Game.msg(G, 'Bilimci çip görevi henüz hazır değil (city.js).', '#e67e22'); return false; }
     const t = Colonies.chipTimeFor(G, member);
-    const ok = City.orderChip(G, member, t);
+    const ok = City.orderChip(G, member, t, sci);
     if (ok === false) { Game.msg(G, 'Boşta bilimci yok.', '#e67e22'); return false; }
     member.reserved = true;
     Game.msg(G, `Bilimci çip takmaya gidiyor (${t} sn).`, '#2e86de');

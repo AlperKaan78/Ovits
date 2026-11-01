@@ -43,7 +43,7 @@
 
     // Her kule dalga başına ozPerWave Öz yakar; ödeyemeyen bu dalgada çekmez
     const active = [];
-    G.buildings.filter((b) => b.type === 'kule' && b.hp > 0).forEach((k) => {
+    G.buildings.filter((b) => b.type === 'kule' && b.hp > 0 && b.built !== false).forEach((k) => {
       if (Game.pay(G, { oz: kc.ozPerWave })) { active.push(k); k.data.activeWave = waveNo; }
       else { k.data.activeWave = 0; Game.msg(G, `Çekim Kulesi bu dalgada çalışmadı: ${kc.ozPerWave} Öz gerekli.`, '#e74c3c'); }
     });
@@ -67,6 +67,10 @@
       if (G.research.done.meteorKalkan && mkc && Game.dist(p.x, p.y, mkc.x, mkc.y) < R) {
         for (let tries = 0; tries < 30 && Game.dist(p.x, p.y, mkc.x, mkc.y) < R; tries++) p = randomPoint(G);
         shielded++;
+      }
+      // İlk dakikalarda şehre isabet yok (GDD 13: "ilk 10 dakika şehre isabet kapalı" önerisi)
+      if (mkc && G.time < m.citySafeUntil && Game.dist(p.x, p.y, mkc.x, mkc.y) < m.citySafeRadius) {
+        for (let tries = 0; tries < 30 && Game.dist(p.x, p.y, mkc.x, mkc.y) < m.citySafeRadius; tries++) p = randomPoint(G);
       }
       const t = G.flags.nextWaveIn + i * 0.35 + Math.random() * 0.3; // aynı anda değil, art arda düşsünler
       G.meteors.push({ x: p.x, y: p.y, type, t, t0: t, sx: start.x, sy: start.y, kule: kule ? kule.id : null, ang: Math.random() * Math.PI });
@@ -175,7 +179,7 @@
       G.flags.nextWaveIn -= dt;
       if (!warned && !spawned && G.flags.nextWaveIn <= m.auroraTime + 10) {
         warned = true;
-        if (G.buildings.some((b) => b.type === 'kule' && b.hp > 0) && G.res.oz < kc.ozPerWave) {
+        if (G.buildings.some((b) => b.type === 'kule' && b.hp > 0 && b.built !== false) && G.res.oz < kc.ozPerWave) {
           Game.msg(G, `Dalgaya ${Math.round(G.flags.nextWaveIn)} sn: Çekim Kulesi için ${kc.ozPerWave} Öz gerekli!`, '#e67e22');
         }
       }
