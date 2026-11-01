@@ -23,6 +23,7 @@ window.CONFIG = {
     isci: '#f1e6cf', asker: '#c0392b', bilimci: '#2e86de',
     bocekNotr: '#4caf50', bocekDusman: '#e74c3c', bocekCipli: '#e67e22',
     akinci: '#2d2d2d', text: '#ffffff',
+    tasiyici: '#e67e22', savasci: '#d35400', yuva: '#2a1b36',
   },
 
   buildings: {
@@ -63,7 +64,7 @@ window.CONFIG = {
 
   vines: {
     roots: [{ x: 46, y: 8 }, { x: 48, y: 20 }, { x: 46, y: 32 }],
-    spreadEvery: 8, spreadChance: 0.25, maxCover: 0.35,
+    spreadEvery: 7, spreadChance: 0.3, maxCover: 0.6, westBias: 0.55, // westBias: yayılırken batıya (şehre) gitme olasılığı
     damagePerSec: 2, pruneCost: { tas: 5 }, pruneRange: 6,
   },
 
@@ -72,7 +73,8 @@ window.CONFIG = {
     toplayici: { count: 4, hp: 40, speed: 1.5, dps: 5, range: 1.2 },
     muhafiz:   { count: 3, hp: 80, speed: 1.6, dps: 10, range: 1.5, guardRadius: 4 },
     kralice:   { hp: 300 },
-    hostileTime: 30, huntSoldiers: 2, faintBelow: 0.3,
+    hostileTime: 30, huntSoldiers: 2, faintBelow: 0.3, faintTime: 45, aggroRadius: 6,
+    roamWidth: 10, // toplayıcıların kraliçeden batıya (düzlüğe) doğru dolaşabildiği kare sayısı
     chipTime: 6, chipTimeMin: 2, queenChipTime: 15, queenSpawnEvery: 40,
     tasiyiciSpeedMul: 2,
   },

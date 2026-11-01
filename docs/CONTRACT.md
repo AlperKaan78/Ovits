@@ -54,6 +54,13 @@ Başka modüllerin çağırması gereken fonksiyonları `window.City`, `window.C
 | `G.ui` | `{ buildMode, selected, mouse }` |
 | `G.flags` | Paylaşılan küçük değerler: `nextWaveIn`, `nextRaidIn` |
 
+Birim alanları:
+
+- `Colonies.hunt` en yakın boştaki (karakolda olmayan) askerlere `u.huntTarget = member.id` yazar; asker varsa önce o bireye gitmeli, birey ölünce ya da bayılınca alanı temizlemeli.
+- Çiplenen toplayıcı `kind: 'tasiyici'` (işçi gibi kristal taşır, `colonies.tasiyiciSpeedMul` kat hızlı), çiplenen muhafız `kind: 'savasci'` (asker gibi savaşır, bakım istemez) olarak `G.units`'e eklenir.
+- Koloni bireyi seçilince `G.ui.selected = { type: 'member', member, colony }`; `member.state`: `'wander'`, `'attack'`, `'fainted'`.
+- İşçi ve taşıyıcının `carrying` alanı taşıdığı kristal ya da `null`; laboratuvarda çalışan bilimcinin `state` alanı `'lab'` (research.js hız için sayar).
+
 Konumlar **kare** cinsindendir ve ondalıklı olabilir (birimler için merkez noktası).
 
 ## core.js yardımcıları
@@ -68,9 +75,14 @@ Konumlar **kare** cinsindendir ve ondalıklı olabilir (birimler için merkez no
 | --- | --- | --- |
 | `City.feed(G, yavru, tip)` (tip: `'isci'`, `'asker'`, `'bilimci'`) | Kişi 1 | ui.js |
 | `City.sendSoldier(G, karakol)` | Kişi 1 | ui.js |
-| `City.orderChip(G, member)` | Kişi 1 | colonies.js / ui.js |
+| `City.orderChip(G, member, sure)` (sure saniye; boşta bilimci yoksa `false` döner) | Kişi 1 | colonies.js |
 | `Colonies.hunt(G, member)` | Kişi 2 | ui.js |
-| `Colonies.hostileMembers(G)` | Kişi 2 | city.js (askerler, taretler) |
-| `Research.enqueue(G, id)`, `Research.available(G)` | Kişi 2 | ui.js |
+| `Colonies.chipDone(G, member)` (bilimci çipi bitirince birey oyuncuya geçer) | Kişi 2 | city.js |
+| `Colonies.hostileMembers(G)` (avlanan birey listenin başında) | Kişi 2 | city.js (askerler, taretler) |
+| `Colonies.tryChip(G, member)` ("Çiple" düğmesi; uygun değilse nedenini mesaj olarak yazar) | Kişi 2 | ui.js |
+| `Colonies.canChip(G, member)` → `{ ok, reason }`, `Colonies.chipTimeFor(G, member)` | Kişi 2 | ui.js |
+| `Research.info(G)` → `{ ad, pct, speed, queue }` ya da `null` | Kişi 2 | ui.js |
+| `Vines.prune(G, tx, ty)`, `Vines.has(G, tx, ty)` | Kişi 2 | (sarmaşığa tıklamayı vines.js kendisi yakalar) |
+| `Research.enqueue(G, id)`, `Research.available(G)` (her öğe `{ id, ad, costText, time, effect, ok, reason }`; `ok` false ise düğme soluk, `reason` gösterilir) | Kişi 2 | ui.js |
 
 Bir çağrı henüz yazılmadıysa `if (window.City && City.feed)` gibi kontrol edin; oyun yine çalışsın.
