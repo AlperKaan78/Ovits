@@ -1,34 +1,23 @@
-# Mor Sarmaşık
+# Mor Sarmaşık (Ovits)
 
-Meteor kuşağının ortasındaki bir gezegende şehir kurduğumuz ve gökten düşen değerli kaynakları şehirden uzak, korunan bir alana çektiğimiz 2D izometrik, gerçek zamanlı bir strateji oyunu. Motor: Godot 4 (GDScript).
+Meteor kuşağının ortasındaki bir gezegende şehir kurup gökten düşen Yıldız Özü'nü şehirden uzak, korunan bir alana çektiğimiz, tarayıcıda çalışan küçük bir strateji oyunu. Üç kişinin yapay zekâ araçlarıyla 2–3 saatte yapması için tasarlandı.
 
-## Klasörler
+- **Depo:** https://github.com/AlperKaan78/Ovits
+- **Klonlama:** `git clone https://github.com/AlperKaan78/Ovits.git` (SSH: `git@github.com:AlperKaan78/Ovits.git`)
+- **Çalıştırma:** `index.html` dosyasına çift tıklayın. Kurulum gerekmez.
+- **Tasarım dokümanı:** https://claude.ai/artifact/RaSWzzC1RzHGgXWCmPqczc
+- **Ortak sözleşme (dosyalar, `G` durumu, modül biçimi):** [docs/CONTRACT.md](docs/CONTRACT.md)
 
-| Klasör | İçerik | Sahibi |
-| --- | --- | --- |
-| `game/` | Kod ve sahneler | Kişi 1 (Claude Max / Claude Code) |
-| `data/` | JSON veri dosyaları: maliyetler, süreler, meteorlar, koloniler | Kişi 2 (Claude Opus) |
-| `assets/` | Görseller, sesler, yazı tipleri | Kişi 3 (ChatGPT Pro) |
-| `docs/` | Tasarım dokümanı, şema, rehberler | Herkes |
+## Görev belgeleri
 
-Kimse başkasının klasörünü değiştirmez; bir ihtiyaç varsa GitHub Issue açılır.
+- Kişi 1, kod çekirdeği, şehir ve meteorlar (Claude Max / Claude Code): https://claude.ai/artifact/T94ZDDR4dYR6FNc52cxRGC
+- Kişi 2, veri, sarmaşık, koloniler ve araştırma (Claude Opus): https://claude.ai/artifact/2dNutoepvgV21uF7SmHKzp
+- Kişi 3, arayüz, akınlar ve test (ChatGPT Pro): https://claude.ai/artifact/K3kUbyWDpiN9tPWEe5TGQG
 
-## Dallar
+## Çalışma kuralı
 
-- `main`: birleştirilmiş, çalışan sürüm (yalnızca Kişi 1 birleştirir)
-- `kisi1-kod`, `kisi2-veri`, `kisi3-varlik`: herkesin kendi çalışma dalı
+Herkes doğrudan `main` dalında, **yalnızca kendi dosyalarında** çalışır (tablo: docs/CONTRACT.md). Göndermeden önce `git pull`, sonra `git add`, `git commit`, `git push`. Git kullanmayan, dosyayı GitHub sitesinde açıp kalem simgesiyle düzenleyip "Commit changes" diyebilir.
 
-## Başlangıç
+## Kontroller
 
-1. GitHub Desktop'ı kurun ve depoyu bilgisayarınıza klonlayın.
-2. Kendi dalınıza geçin (Current Branch → kendi dalınız).
-3. Her çalışmaya başlamadan önce "Fetch origin / Pull" ile güncel hâli alın.
-4. İşinizi bitirince "Commit" ve "Push" ile gönderin.
-5. Godot 4 kurulduktan sonra projeyi açmak için Godot'ta bu klasörü içe aktarın (proje dosyası Faz 0'da Kişi 1 tarafından eklenecek).
-
-## Belgeler
-
-- Ana tasarım dokümanı: https://claude.ai/artifact/RaSWzzC1RzHGgXWCmPqczc
-- Kişi 1 görev belgesi: https://claude.ai/artifact/T94ZDDR4dYR6FNc52cxRGC
-- Kişi 2 görev belgesi: https://claude.ai/artifact/2dNutoepvgV21uF7SmHKzp
-- Kişi 3 görev belgesi: https://claude.ai/artifact/K3kUbyWDpiN9tPWEe5TGQG
+WASD / ok tuşları kamera · alttaki çubuktan bina seç, haritaya tıklayıp kur · haritada bir şeye tıkla, sağ panelde işlemler · Esc iptal · Boşluk duraklat · 1 / 2 oyun hızı

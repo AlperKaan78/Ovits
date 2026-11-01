@@ -1,11 +1,10 @@
-Bu depo "Mor Sarmaşık" adlı 2D izometrik strateji / şehir kurma oyunudur.
-Motor: Godot 4, dil: GDScript.
-Oyunun tarifi: docs/GDD.md (tek doğru kaynak). Benim görevlerim: docs/KISI1.md.
-Ben Kişi 1'im: baş programcı ve depo sahibi.
+Bu depo "Mor Sarmaşık" adlı, tarayıcıda çalışan 2D (yukarıdan bakış) strateji / şehir kurma oyunudur.
+Teknoloji: HTML5 Canvas + düz JavaScript (modül/derleyici yok, klasik <script> etiketleri). index.html çift tıklanınca çalışmalı.
+Oyunun tarifi: https://claude.ai/artifact/RaSWzzC1RzHGgXWCmPqczc (tasarım dokümanı). Ortak kurallar: docs/CONTRACT.md.
 
 Kurallar:
-- Oyun değerlerini koda sabit yazma; data/ klasöründeki JSON dosyalarından oku. Şema: docs/SCHEMA.md.
-- Yalnızca game/ ve docs/SCHEMA.md dosyalarını değiştir; data/ ve assets/ başkalarına aittir.
-- Her yeni sistem için game/tests/ altında küçük bir test sahnesi oluştur.
-- Büyük işlerde önce plan yaz, onayımı bekle, sonra kodla.
-- Küçük, açıklamalı commit'ler yap; iş bitince ne değiştiğini ve nasıl deneneceğini özetle.
+- Yalnızca bana ait dosyaları değiştir (docs/CONTRACT.md'deki sahiplik tablosu). Başkasının dosyasına ihtiyaç varsa bana söyle.
+- Hiçbir oyun değerini koda sabit yazma; data/config.js'teki CONFIG'den oku.
+- ES modülleri (import/export) ve harici kütüphane kullanma; file:// üzerinden açılınca çalışmalı.
+- Başka modüllerin fonksiyonlarını çağırmadan önce var olduklarını kontrol et (ör. if (window.City && City.feed)).
+- Küçük adımlarla ilerle; her adımdan sonra tarayıcıda denenebilir olsun. İş bitince neyin değiştiğini ve nasıl deneneceğini kısaca yaz.
