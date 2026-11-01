@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mor Sarmaşık</title>
+  <!-- 3D oyun (Kişi 1). Açmak için klasördeki baslat.bat'a çift tıklayın; 2D sürüm index.html'de. -->
+  <style>
+    [hidden] { display: none !important; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #100c25; font-family: system-ui, sans-serif; }
+    #world { position: fixed; inset: 0; }
+    #hud { position: fixed; inset: 0; pointer-events: none; }
+    #mini { position: fixed; left: 14px; top: 60%; border: 1px solid rgba(95, 212, 224, 0.45); background: #100c25; cursor: crosshair; }
+    #error { position: fixed; top: 90px; left: 14px; max-width: 560px; white-space: pre-wrap; background: #602b30; color: #fff; font: 13px/1.4 system-ui, sans-serif; padding: 10px 12px; }
+    #dosya { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; color: #ece6da; background: #100c25; font: 16px/1.6 system-ui, sans-serif; padding: 24px; }
+    #dosya b { color: #5fd4e0; }
+  </style>
+</head>
+<body>
+  <div id="world"></div>
+  <canvas id="hud"></canvas>
+  <canvas id="mini" width="210" height="140"></canvas>
+  <div id="error" hidden></div>
+  <div id="dosya" hidden><div>Bu sayfa doğrudan dosyadan açılamıyor.<br>Oyun klasöründeki <b>baslat.bat</b> dosyasına çift tıklayın.</div></div>
+  <script>if (location.protocol === 'file:') document.getElementById('dosya').hidden = false;</script>
+  <!-- Oyun mantığı: 2D sürümle aynı modüller. core.js'in 2D döngüsü (Game.start) burada çağrılmaz. -->
+  <script src="data/config.js"></script>
+  <script src="src/core.js"></script>
+  <script src="src/vines.js"></script>
+  <script src="src/meteors.js"></script>
+  <script src="src/city.js"></script>
+  <script src="src/colonies.js"></script>
+  <script src="src/enemies.js"></script>
+  <script src="src/research.js"></script>
+  <script src="assets/ui3d.js"></script>
+  <script type="module" src="src/oyun3d.js"></script>
+</body>
+</html>
