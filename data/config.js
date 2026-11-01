@@ -29,6 +29,7 @@ window.CONFIG = {
     vineLeafDark: '#1f5f8f', vineLeafVein: 'rgba(210,240,255,0.55)', vineGlow: 'rgba(90,190,255,0.16)',
     vineBud: '#aee9ff', vineRoot: '#2e0f42', vineRootGlow: 'rgba(160,90,220,0.45)',
     pruneOk: '#ffffff', pruneNo: '#ff8a65', panel: 'rgba(14,10,24,0.82)',
+    vineDead: '#7a6248', nightTint: 'rgba(8,6,38,0.5)',
     // böcek ve yuva ayrıntıları
     bocekBacak: '#1a1712', bocekBayilmis: '#8a9396', golge: 'rgba(0,0,0,0.28)',
     yuvaToprak: '#4a3a52', yuvaKenar: 'rgba(120,200,255,0.35)', yuvaDelik: '#120a18',
@@ -76,11 +77,24 @@ window.CONFIG = {
     spreadEvery: 7, spreadChance: 0.3, maxCover: 0.6, westBias: 0.55, // westBias: yayılırken batıya (şehre) gitme olasılığı
     damagePerSec: 2, pruneCost: { tas: 5 }, pruneRange: 6,
     growAnim: 1.5, // yeni sarmaşık karesinin büyüme animasyonu (sn, yalnızca görüntü)
+    // Sarmaşık Öfkesi (GDD 7): budama ve zehir öfkeyi artırır; tam öfkede yayılma (1 + spreadMul) kat
+    anger: { max: 100, perPrune: 3, perPoison: 30, decayPerSec: 0.25, spreadMul: 1, warnAt: 0.7 },
+    // Gece-gündüz (GDD 2): cycle saniyelik bir günün son 'part' kadarı gece; gece yayılma spreadMul kat
+    night: { cycle: 240, part: 0.35, ramp: 15, spreadMul: 1.6 },
+    // Meteor tozu (GDD 7): kristallerin ve Çekim Kulesi'nin radius kare çevresinde yayılma spreadMul kat
+    dust: { radius: 4, spreadMul: 2 },
+    // Kök Zehri (araştırma): köke tıklanınca cost ödenir; kök ve dalları her kademede witherStep sn arayla kurur
+    poison: { cost: { oz: 25 }, witherStep: 0.25 },
   },
 
   colonies: {
-    list: [{ id: 'A', queen: { x: 54, y: 10 } }, { id: 'B', queen: { x: 54, y: 30 } }],
-    toplayici: { count: 4, hp: 40, speed: 1.5, dps: 5, range: 1.2 },
+    list: [{ id: 'A', type: 'taskabuk', queen: { x: 54, y: 10 } }, { id: 'B', type: 'yaprakci', queen: { x: 54, y: 30 } }],
+    // Koloni türleri (GDD 8): hpMul/speedMul toplayıcı ve muhafızlara uygulanır
+    types: {
+      taskabuk: { ad: 'Taşkabuk', color: '#6f9a3a', hpMul: 1.3, speedMul: 0.85, eatsVine: false },
+      yaprakci: { ad: 'Yaprakçı', color: '#2fb59a', hpMul: 0.9, speedMul: 1.1, eatsVine: true, eatTime: 4 }, // eatTime: bir kare sarmaşığı yeme süresi
+    },
+    toplayici: { count: 4, hp: 40, speed: 1.5, dps: 5, range: 1.2, groups: 2, groupMove: 9, fleeBelow: 0.5 }, // groups: kaç küçük grupta gezdikleri, groupMove: grubun yeni yere geçme aralığı (sn), fleeBelow: bu can oranının altında yuvaya kaçar
     muhafiz:   { count: 3, hp: 80, speed: 1.6, dps: 10, range: 1.5, guardRadius: 4 },
     kralice:   { hp: 300 },
     hostileTime: 30, huntSoldiers: 2, faintBelow: 0.3, faintTime: 45, aggroRadius: 6,
@@ -88,16 +102,19 @@ window.CONFIG = {
     chipTime: 6, chipTimeMin: 2, queenSpawnEvery: 40,
     queenChipTime: 20, // Denge: 15'ten 20'ye; bilimci yuvada daha uzun korunmalı, kraliçe bir sefer gerektirsin
     tasiyiciSpeedMul: 2,
+    healRadius: 3, healPerSec: 4,          // yuvanın healRadius karesi içindeki bireyler saniyede healPerSec can kazanır
+    overHunt: { kills: 8, hostileMul: 3 }, // aşırı av cezası (GDD 8): bu kadar av sonrası öfke süresi hostileMul kat
   },
 
   research: [
-    { id: 'genisCekim',   ad: 'Geniş Çekim',     cost: { oz: 30 },             time: 40, effect: 'Kule çekme oranı %85' },
-    { id: 'meteorKalkan', ad: 'Meteor Kalkanı',  cost: { oz: 40 },             time: 45, effect: 'Merkez çevresine (10 kare) meteor düşmez' },
-    { id: 'kitinAgi',     ad: 'Kitin Ağı',       cost: { oz: 20, kitin: 3 },   time: 30, effect: 'Avlanan bireyler ölmez, bayılır' },
-    { id: 'noroCip',      ad: 'Nöro-çip',        cost: { oz: 50, kitin: 5 },   time: 60, effect: 'Bayılmış bireyler çiplenebilir', requires: 'kitinAgi' },
-    { id: 'kraliceCipi',  ad: 'Kraliçe Çipi',    cost: { oz: 150, kitin: 12 }, time: 150, effect: 'Kraliçe çiplenebilir', requires: 'noroCip' }, // Denge: 100 Öz / 10 Kitin / 90 sn ile 8-10. dakikada alınabiliyordu; kraliçe geç oyunda (12+. dk) gelsin
+    { id: 'genisCekim', dal: 'Gök',   ad: 'Geniş Çekim',     cost: { oz: 30 },             time: 40, effect: 'Kule çekme oranı %85' },
+    { id: 'meteorKalkan', dal: 'Gök', ad: 'Meteor Kalkanı',  cost: { oz: 40 },             time: 45, effect: 'Merkez çevresine (10 kare) meteor düşmez' },
+    { id: 'kokZehri', dal: 'Sarmaşık',     ad: 'Kök Zehri',       cost: { oz: 35 },             time: 45, effect: 'Sarmaşık köküne tıklayıp kurutabilirsin' },
+    { id: 'kitinAgi', dal: 'Av',    ad: 'Kitin Ağı',       cost: { oz: 20, kitin: 3 },   time: 30, effect: 'Avlanan bireyler ölmez, bayılır' },
+    { id: 'noroCip', dal: 'Av',      ad: 'Nöro-çip',        cost: { oz: 50, kitin: 5 },   time: 60, effect: 'Bayılmış bireyler çiplenebilir', requires: 'kitinAgi' },
+    { id: 'kraliceCipi', dal: 'Av',  ad: 'Kraliçe Çipi',    cost: { oz: 150, kitin: 12 }, time: 150, effect: 'Kraliçe çiplenebilir', requires: 'noroCip' }, // Denge: 100 Öz / 10 Kitin / 90 sn ile 8-10. dakikada alınabiliyordu; kraliçe geç oyunda (12+. dk) gelsin
   ],
-  researchValues: { genisCekimPull: 0.85, kalkanRadius: 10 },
+  researchValues: { genisCekimPull: 0.85, kalkanRadius: 10, refundCurrent: 0.5 }, // refundCurrent: sürmekte olan araştırma iptal edilince iade oranı
 
   enemies: {
     firstRaid: 180, interval: 120, baseSize: 3, growPerRaid: 1,

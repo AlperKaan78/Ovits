@@ -22,8 +22,36 @@
         if (!lab(G)) reason = 'Laboratuvar gerekli';
         else if (r.requires && !inPipeline(G, r.requires)) reason = 'Önce: ' + def(G, r.requires).ad;
         else if (!Game.canAfford(G, r.cost)) reason = 'Yetersiz kaynak';
-        return { id: r.id, ad: r.ad, cost: r.cost, costText: Game.costText(r.cost), time: r.time, effect: r.effect, ok: !reason, reason };
+        return { id: r.id, ad: r.ad, dal: r.dal, cost: r.cost, costText: Game.costText(r.cost), time: r.time, effect: r.effect, ok: !reason, reason };
       });
+  };
+
+  // Sıradaki bir araştırmayı en öne al (GDD 10: "oyuncu sırayı istediği an değiştirebilir")
+  Research.moveUp = function (G, id) {
+    const Q = G.research.queue, i = Q.indexOf(id);
+    if (i <= 0) return false;
+    Q.splice(i, 1); Q.unshift(id);
+    // ön koşulu sırada bekliyorsa, ön koşul yine kendisinden önce gelsin
+    const pre = def(G, id).requires;
+    if (pre && Q.includes(pre)) { Q.splice(Q.indexOf(pre), 1); Q.unshift(pre); }
+    return true;
+  };
+
+  // Sıradan çıkar ya da süreni iptal et; bedel iade edilir (sürende olan için refundCurrent oranında).
+  // Ona bağlı (requires) sıradaki araştırmalar da iptal olur.
+  Research.cancel = function (G, id) {
+    const R = G.research, r = def(G, id);
+    if (!r || R.done[id]) return false;
+    let rate;
+    if (R.current === id) { R.current = null; R.progress = 0; rate = G.cfg.researchValues.refundCurrent; }
+    else if (R.queue.includes(id)) { R.queue.splice(R.queue.indexOf(id), 1); rate = 1; }
+    else return false;
+    const back = {};
+    Object.keys(r.cost).forEach((k) => (back[k] = Math.floor(r.cost[k] * rate)));
+    Game.gain(G, back);
+    Game.msg(G, `${r.ad} iptal edildi (${Game.costText(back)} iade).`, '#e67e22');
+    G.cfg.research.filter((x) => x.requires === id).forEach((x) => Research.cancel(G, x.id));
+    return true;
   };
 
   Research.enqueue = function (G, id) {
@@ -42,7 +70,12 @@
     const R = G.research;
     if (!R.current) return null;
     const r = def(G, R.current);
-    return { id: r.id, ad: r.ad, progress: R.progress, time: r.time, pct: Math.min(1, R.progress / r.time), speed: Research.speed(G), queue: R.queue.map((id) => def(G, id).ad) };
+    const speed = Research.speed(G);
+    return {
+      id: r.id, ad: r.ad, progress: R.progress, time: r.time, pct: Math.min(1, R.progress / r.time), speed,
+      eta: Math.ceil((r.time - R.progress) / speed), // kalan süre (sn)
+      queue: R.queue.map((id) => def(G, id).ad), queueIds: R.queue.slice(),
+    };
   };
 
   Research.isDone = (G, id) => !!G.research.done[id];
@@ -73,7 +106,7 @@
       const info = Research.info(G), b = lab(G);
       if (!info || !b) return;
       const T = G.map.tile, colors = G.cfg.colors, cx = (b.x + b.size / 2) * T, py = b.y * T;
-      const label = `⚗ ${info.ad}  ${Math.floor(info.pct * 100)}%` + (info.speed > 1 ? `  ×${info.speed.toFixed(1)}` : '');
+      const label = `⚗ ${info.ad}  ${Math.floor(info.pct * 100)}%  · ${info.eta} sn` + (info.speed > 1 ? `  ×${info.speed.toFixed(1)}` : '');
       ctx.font = 'bold 11px sans-serif';
       const bw = Math.max(b.size * T + 20, ctx.measureText(label).width + 16), bx = cx - bw / 2, by = py - 30;
       const rr = (x, y, w, h, r) => { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); };

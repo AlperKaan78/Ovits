@@ -52,13 +52,14 @@ Başka modüllerin çağırması gereken fonksiyonları `window.City`, `window.C
 | `G.research` | `{ done:{}, queue:[], current, progress }` |
 | `G.messages` | `{ text, color, t }` (Game.msg ile eklenir) |
 | `G.ui` | `{ buildMode, selected, mouse }` |
-| `G.flags` | Paylaşılan küçük değerler: `nextWaveIn`, `nextRaidIn` |
+| `G.flags` | Paylaşılan küçük değerler: `nextWaveIn`, `nextRaidIn`; vines.js yazar: `vineCover`, `vineAnger` (0..1), `night` (0..1, gece karartmasını vines.js çizer) |
 
 Birim alanları:
 
 - `Colonies.hunt` en yakın boştaki (karakolda olmayan) askerlere `u.huntTarget = member.id` yazar; asker varsa önce o bireye gitmeli, birey ölünce ya da bayılınca alanı temizlemeli.
 - Çiplenen toplayıcı `kind: 'tasiyici'` (işçi gibi kristal taşır, `colonies.tasiyiciSpeedMul` kat hızlı), çiplenen muhafız `kind: 'savasci'` (asker gibi savaşır, bakım istemez) olarak `G.units`'e eklenir.
-- Koloni bireyi seçilince `G.ui.selected = { type: 'member', member, colony }`; `member.state`: `'wander'`, `'attack'`, `'fainted'`.
+- Koloni bireyi seçilince `G.ui.selected = { type: 'member', member, colony }`; `member.state`: `'wander'`, `'attack'`, `'flee'` (yuvaya kaçıyor), `'fainted'`. Koloninin `ad` (Taşkabuk / Yaprakçı) ve `type` alanları vardır.
+- Çiplenen birimin `fromColony` alanı koloni kimliğidir; Yaprakçı'dan gelenler üstünden geçtikleri sarmaşığı kendiliğinden yer (colonies.js).
 - İşçi ve taşıyıcının `carrying` alanı taşıdığı kristal ya da `null`; laboratuvarda çalışan bilimcinin `state` alanı `'lab'` (research.js hız için sayar).
 
 Konumlar **kare** cinsindendir ve ondalıklı olabilir (birimler için merkez noktası).
@@ -78,6 +79,8 @@ Konumlar **kare** cinsindendir ve ondalıklı olabilir (birimler için merkez no
 | `City.orderChip(G, member, sure)` (sure saniye; boşta bilimci yoksa `false` döner) | Kişi 1 | colonies.js |
 | `Colonies.hunt(G, member)` | Kişi 2 | ui.js |
 | `Colonies.chipDone(G, member)` (bilimci çipi bitirince birey oyuncuya geçer) | Kişi 2 | city.js |
+| `Vines.seed(G, x, y, r)` (r kare yarıçapında hızlı sarmaşık filizlenmesi; ör. kara meteor) | Kişi 2 | meteors.js (isteğe bağlı) |
+| `Research.moveUp(G, id)`, `Research.cancel(G, id)` (sırayı değiştir / iptal et, bedel iade) | Kişi 2 | ui.js (laboratuvar paneli) |
 | `Colonies.hostileMembers(G)` (avlanan birey listenin başında) | Kişi 2 | city.js (askerler, taretler) |
 | `Colonies.tryChip(G, member)` ("Çiple" düğmesi; uygun değilse nedenini mesaj olarak yazar) | Kişi 2 | ui.js |
 | `Colonies.canChip(G, member)` → `{ ok, reason }`, `Colonies.chipTimeFor(G, member)` | Kişi 2 | ui.js |
