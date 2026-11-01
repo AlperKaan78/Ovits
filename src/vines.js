@@ -1,17 +1,42 @@
 // ============================================================
 // src/vines.js  —  SAHİBİ: Kişi 2
-// Mor sarmaşığın yayılması, binalara hasarı ve budama. Tasarım: GDD bölüm 7.
+// Mor sarmaşığın yayılması, binalara hasarı, budama, Sarmaşık Öfkesi, gece-gündüz,
+// meteor tozu ve Kök Zehri. Tasarım: GDD bölüm 2 ve 7.
 // Veri: G.map.vine (Uint8Array; 0 = boş, 1 = sarmaşık, 2 = kök). Sözleşme: docs/CONTRACT.md
 // ============================================================
+// Yayılma hızı = spreadChance × öfke çarpanı × gece çarpanı × (meteor tozu yakınındaysa toz çarpanı)
+//  - Öfke: her budama ve Kök Zehri öfkeyi artırır, zamanla söner (GDD "Sarmaşık Öfkesi").
+//  - Gece: sarmaşık daha hızlı büyür, yaprakları karanlıkta parlar (GDD bölüm 2).
+//  - Meteor tozu: kristallerin ve Çekim Kulesi'nin çevresinde daha hızlı büyür (GDD bölüm 7).
+//  - Kök Zehri (araştırma): köke tıklanınca kök ve ondan büyüyen dallar sırayla kurur.
 (function () {
   const Vines = (window.Vines = {});
   const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  let timer = 0, cover = 0;
+  let timer = 0, cover = 0, anger = 0, angryWarned = false;
   let born = null;   // her karenin sarmaşıkla kaplandığı an (büyüme animasyonu için)
   let parent = null; // her karenin büyüdüğü komşu kare (dallar bu bağla çizilir; -1 = yok)
+  let wither = null; // Kök Zehri: karenin kuruyup yok olacağı an (0 = kurumuyor)
+  let lastGlow = null; // son çizilen yaprak ışıltıları (gece katmanında yeniden parlatılır)
 
   Vines.has = (G, tx, ty) => Game.inMap(G, tx, ty) && G.map.vine[Game.idx(G, tx, ty)] > 0;
   Vines.isRoot = (G, tx, ty) => Game.inMap(G, tx, ty) && G.map.vine[Game.idx(G, tx, ty)] === 2;
+
+  // 0..1 arası öfke ve gece değerleri (arayüz G.flags.vineAnger / G.flags.night olarak da okuyabilir)
+  Vines.anger = (G) => anger / G.cfg.vines.anger.max;
+  Vines.night = function (G) {
+    const n = G.cfg.vines.night, t = G.time % n.cycle, start = n.cycle * (1 - n.part);
+    if (t < start) return 0;
+    const a = Math.min(1, (t - start) / n.ramp), b = Math.min(1, (n.cycle - t) / n.ramp);
+    return Math.min(a, b);
+  };
+  function addAnger(G, v) {
+    const a = G.cfg.vines.anger;
+    anger = Math.min(a.max, anger + v);
+    if (!angryWarned && anger >= a.max * a.warnAt) {
+      angryWarned = true;
+      Game.msg(G, 'Sarmaşık öfkelendi! Bir süre çok daha hızlı yayılacak.', '#c08ae0');
+    }
+  }
 
   // Bir binanın üstündeki ya da bitişiğindeki sarmaşık karesi var mı
   Vines.touches = function (G, b) {
@@ -21,16 +46,28 @@
     return false;
   };
 
-  function grow(G, i, from) { G.map.vine[i] = 1; born[i] = G.time; parent[i] = from; cover++; }
+  function grow(G, i, from) { G.map.vine[i] = 1; born[i] = G.time; parent[i] = from; wither[i] = 0; cover++; }
+  function removeTile(G, i) { if (G.map.vine[i]) { G.map.vine[i] = 0; wither[i] = 0; cover--; } }
+
+  // Meteor tozunun bulunduğu noktalar: yerdeki kristaller ve Çekim Kuleleri
+  function dustSpots(G) {
+    const out = G.crystals.map((c) => ({ x: c.x, y: c.y }));
+    G.buildings.forEach((b) => { if (b.type === 'kule' && b.hp > 0) out.push(Game.center(b)); });
+    return out;
+  }
 
   function spread(G) {
     const vc = G.cfg.vines, w = G.map.w, h = G.map.h, max = Math.floor(w * h * vc.maxCover);
     if (cover >= max) return;
+    const base = vc.spreadChance * (1 + Vines.anger(G) * vc.anger.spreadMul) * (1 + Vines.night(G) * (vc.night.spreadMul - 1));
+    const dust = dustSpots(G), r2 = vc.dust.radius * vc.dust.radius;
     const tiles = [];
-    for (let i = 0; i < G.map.vine.length; i++) if (G.map.vine[i]) tiles.push(i);
+    for (let i = 0; i < G.map.vine.length; i++) if (G.map.vine[i] && !wither[i]) tiles.push(i);
     for (const i of tiles) {
       if (cover >= max) break;
-      if (Math.random() >= vc.spreadChance) continue;
+      const tx = (i % w) + 0.5, ty = Math.floor(i / w) + 0.5;
+      const dusty = dust.some((d) => (d.x - tx) * (d.x - tx) + (d.y - ty) * (d.y - ty) <= r2);
+      if (Math.random() >= base * (dusty ? vc.dust.spreadMul : 1)) continue;
       // Sarmaşık şehre (batıya) doğru ilerlemeyi sever
       const d = Math.random() < vc.westBias ? DIRS[1] : [DIRS[0], DIRS[2], DIRS[3]][Math.floor(Math.random() * 3)];
       const nx = (i % w) + d[0], ny = Math.floor(i / w) + d[1];
@@ -60,8 +97,68 @@
     const c = Vines.canPrune(G, tx, ty);
     if (!c.ok) { if (c.reason) Game.msg(G, 'Budanamıyor: ' + c.reason + '.', '#e67e22'); return false; }
     Game.pay(G, G.cfg.vines.pruneCost);
-    G.map.vine[Game.idx(G, tx, ty)] = 0; cover--;
+    removeTile(G, Game.idx(G, tx, ty));
     cuts.push({ x: tx + 0.5, y: ty + 0.5, t: G.time });
+    addAnger(G, G.cfg.vines.anger.perPrune);
+    return true;
+  };
+
+  // Bedelsiz temizleme (ör. sarmaşık yiyen Yaprakçı böcekler). Köke dokunmaz, öfke artırmaz.
+  Vines.clear = function (G, tx, ty) {
+    if (!Vines.has(G, tx, ty) || Vines.isRoot(G, tx, ty)) return false;
+    removeTile(G, Game.idx(G, tx, ty));
+    cuts.push({ x: tx + 0.5, y: ty + 0.5, t: G.time });
+    return true;
+  };
+
+  // Bir noktada hızlı sarmaşık filizlenmesi (ör. Kişi 1'in "kara meteor"u için): r kare yarıçapında boş karelere
+  Vines.seed = function (G, x, y, r) {
+    let n = 0;
+    for (let ty = Math.floor(y - r); ty <= Math.ceil(y + r); ty++)
+      for (let tx = Math.floor(x - r); tx <= Math.ceil(x + r); tx++) {
+        if (!Game.inMap(G, tx, ty) || Game.dist(tx + 0.5, ty + 0.5, x, y) > r) continue;
+        const i = Game.idx(G, tx, ty);
+        if (G.map.vine[i] || Game.buildingAt(G, tx, ty)) continue;
+        grow(G, i, -1); born[i] = G.time + Math.random() * 0.8; n++;
+      }
+    return n;
+  };
+
+  // ---------- Kök Zehri ----------
+  Vines.canPoison = function (G, tx, ty) {
+    const p = G.cfg.vines.poison;
+    if (!Vines.isRoot(G, tx, ty)) return { ok: false, reason: '' };
+    if (!G.research.done.kokZehri) return { ok: false, reason: 'Kök Zehri araştırılmalı' };
+    if (!Game.canAfford(G, p.cost)) return { ok: false, reason: `${Game.costText(p.cost)} gerekli` };
+    return { ok: true, reason: '' };
+  };
+
+  // Kökü ve ondan büyüyen dalları (parent zinciri bu köke çıkan kareler) uzaklık sırasıyla kurutur
+  Vines.poison = function (G, tx, ty) {
+    const c = Vines.canPoison(G, tx, ty);
+    if (!c.ok) { if (c.reason) Game.msg(G, 'Zehirlenemiyor: ' + c.reason + '.', '#e67e22'); return false; }
+    const vc = G.cfg.vines, V = G.map.vine, root = Game.idx(G, tx, ty);
+    Game.pay(G, vc.poison.cost);
+    const depth = new Int32Array(V.length).fill(-2); // -2 bilinmiyor, -1 bu köke bağlı değil
+    depth[root] = 0;
+    const find = (i) => {
+      const chain = [];
+      let k = i, d = -1;
+      while (k >= 0 && V[k] && chain.length < 4000) {
+        if (depth[k] !== -2) { d = depth[k]; break; }
+        chain.push(k); k = parent[k];
+      }
+      for (let j = chain.length - 1; j >= 0; j--) { if (d >= 0) d++; depth[chain[j]] = d; }
+      return depth[i];
+    };
+    let n = 0;
+    for (let i = 0; i < V.length; i++) {
+      if (!V[i]) continue;
+      const d = find(i);
+      if (d >= 0) { wither[i] = G.time + 0.5 + d * vc.poison.witherStep; n++; }
+    }
+    addAnger(G, vc.anger.perPoison);
+    Game.msg(G, `Kök zehirlendi: ${n} kare sarmaşık kuruyacak. Sarmaşık öfkelendi!`, '#9be7a1');
     return true;
   };
 
@@ -91,7 +188,12 @@
     const anim = G.cfg.vines.growAnim;
     const x0 = Math.max(0, Math.floor(G.cam.x / T) - 1), y0 = Math.max(0, Math.floor(G.cam.y / T) - 1);
     const x1 = Math.min(G.map.w, Math.ceil((G.cam.x + cv.width) / T) + 1), y1 = Math.min(G.map.h, Math.ceil((G.cam.y + cv.height) / T) + 1);
-    const g = (x, y) => (anim > 0 ? smooth(Math.min(1, Math.max(0, (G.time - born[y * w + x]) / anim))) : 1);
+    const g = (x, y) => {
+      const i = y * w + x;
+      let k = anim > 0 ? smooth(Math.min(1, Math.max(0, (G.time - born[i]) / anim))) : 1;
+      if (wither[i]) k = Math.min(k, smooth(Math.min(1, Math.max(0, (wither[i] - G.time) / 0.8)))); // kururken büzülür
+      return k;
+    };
 
     // Her karenin dal düğümü kare ortasından biraz kaymış durur (ızgara görüntüsünü kırar)
     const nodeX = (x, y) => (x + 0.5 + (rnd(x, y, 1) - 0.5) * 0.6) * T;
@@ -149,10 +251,15 @@
 
     // 3) Yapraklar: üç gruba ayrılır, her grup farklı zamanda hafifçe parlar
     const glow = [new Path2D(), new Path2D(), new Path2D()], leaves = new Path2D(), veins = new Path2D(), buds = new Path2D();
+    const dead = new Path2D(); // kuruyan yapraklar
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
       if (!V[y * w + x]) continue;
       const k = g(x, y);
       if (k < 0.3) continue;
+      if (wither[y * w + x]) {
+        for (let i = 0; i < 3; i++) leafPath(dead, (x + 0.15 + rnd(x, y, 10 + i) * 0.7) * T, (y + 0.15 + rnd(x, y, 20 + i) * 0.7) * T, T * 0.25 * k, rnd(x, y, 30 + i) * 6.3);
+        continue;
+      }
       const n = 2 + Math.floor(rnd(x, y, 9) * 3);
       for (let i = 0; i < n; i++) {
         const lx = (x + 0.15 + rnd(x, y, 10 + i) * 0.7) * T, ly = (y + 0.15 + rnd(x, y, 20 + i) * 0.7) * T;
@@ -179,6 +286,8 @@
     ctx.globalAlpha = 0.6 + 0.4 * Math.sin(G.time * 3);
     ctx.fillStyle = c.vineBud; ctx.fill(buds);
     ctx.globalAlpha = 1;
+    ctx.fillStyle = c.vineDead; ctx.fill(dead);
+    lastGlow = { glow, buds };
 
     // 4) Kök düğümleri: nabız gibi atan iri yumru
     G.cfg.vines.roots.forEach((r, i) => {
@@ -219,12 +328,16 @@
 
   function drawHover(ctx, G) {
     const m = G.ui.mouse, T = G.map.tile;
-    if (G.ui.buildMode || !Vines.has(G, m.tx, m.ty) || Vines.isRoot(G, m.tx, m.ty)) return;
-    const c = Vines.canPrune(G, m.tx, m.ty), col = c.ok ? G.cfg.colors.pruneOk : G.cfg.colors.pruneNo;
+    if (G.ui.buildMode || !Vines.has(G, m.tx, m.ty)) return;
+    const root = Vines.isRoot(G, m.tx, m.ty);
+    const c = root ? Vines.canPoison(G, m.tx, m.ty) : Vines.canPrune(G, m.tx, m.ty);
+    const col = c.ok ? G.cfg.colors.pruneOk : G.cfg.colors.pruneNo;
     ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.lineDashOffset = -G.time * 12;
     ctx.beginPath(); ctx.roundRect ? ctx.roundRect(m.tx * T + 2, m.ty * T + 2, T - 4, T - 4, 6) : ctx.rect(m.tx * T + 2, m.ty * T + 2, T - 4, T - 4);
     ctx.stroke(); ctx.setLineDash([]);
-    const text = c.ok ? '✂ Buda: ' + Game.costText(G.cfg.vines.pruneCost) : c.reason;
+    const text = root
+      ? (c.ok ? '☠ Kök Zehri: ' + Game.costText(G.cfg.vines.poison.cost) : 'Sarmaşık kökü · ' + c.reason)
+      : (c.ok ? '✂ Buda: ' + Game.costText(G.cfg.vines.pruneCost) : c.reason);
     ctx.font = '12px sans-serif';
     const tw = ctx.measureText(text).width + 12, bx = m.tx * T + T / 2 - tw / 2, by = m.ty * T - 24;
     ctx.fillStyle = G.cfg.colors.panel; ctx.beginPath();
@@ -232,12 +345,39 @@
     ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.fillText(text, m.tx * T + T / 2, by + 13.5); ctx.textAlign = 'left';
   }
 
+  // Ekran katmanı: gece karartması, karanlıkta parlayan yapraklar ve küçük öfke / gece göstergesi
+  function drawOverlay(ctx, G) {
+    const c = G.cfg.colors, cv = ctx.canvas, night = Vines.night(G);
+    if (night > 0) {
+      ctx.globalAlpha = night; ctx.fillStyle = c.nightTint; ctx.fillRect(0, 0, cv.width, cv.height);
+      if (lastGlow) { // sarmaşık karanlıkta ışıldar
+        ctx.save(); ctx.translate(-Math.round(G.cam.x), -Math.round(G.cam.y));
+        ctx.globalCompositeOperation = 'lighter';
+        lastGlow.glow.forEach((p, gi) => { ctx.globalAlpha = night * (0.25 + 0.2 * Math.sin(G.time * 1.6 + gi * 2.1)); ctx.fillStyle = c.vineGlow; ctx.fill(p); });
+        ctx.globalAlpha = night; ctx.fillStyle = c.vineBud; ctx.fill(lastGlow.buds);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+    }
+    // gösterge (sağ üst, üst çubuğun altında)
+    const a = Vines.anger(G), W = 150, x = cv.width - W - 12, y = 36;
+    ctx.fillStyle = c.panel; ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, W, 40, 6); else ctx.rect(x, y, W, 40);
+    ctx.fill();
+    ctx.font = 'bold 11px sans-serif'; ctx.fillStyle = c.text;
+    ctx.fillText(night > 0.5 ? '☾ Gece · sarmaşık hızlı' : '☀ Gündüz', x + 8, y + 14);
+    ctx.fillStyle = c.vineStemLight; ctx.fillText('Sarmaşık Öfkesi', x + 8, y + 29);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(x + 100, y + 22, 42, 7);
+    ctx.fillStyle = a > G.cfg.vines.anger.warnAt ? c.bocekDusman : c.vineStem; ctx.fillRect(x + 100, y + 22, 42 * a, 7);
+  }
+
   Game.register({
     name: 'vines',
     init(G) {
-      timer = 0; cover = 0; cuts.length = 0;
+      timer = 0; cover = 0; anger = 0; angryWarned = false; cuts.length = 0; lastGlow = null;
       born = new Float32Array(G.map.w * G.map.h).fill(-1e6);
       parent = new Int32Array(G.map.w * G.map.h).fill(-1);
+      wither = new Float32Array(G.map.w * G.map.h);
       G.cfg.vines.roots.forEach((r) => {
         const ri = Game.idx(G, r.x, r.y);
         G.map.vine[ri] = 2; cover++;
@@ -252,6 +392,13 @@
       const vc = G.cfg.vines;
       timer += dt;
       while (timer >= vc.spreadEvery) { timer -= vc.spreadEvery; spread(G); }
+      // Öfke zamanla söner
+      anger = Math.max(0, anger - vc.anger.decayPerSec * dt);
+      if (anger < vc.anger.max * vc.anger.warnAt * 0.5) angryWarned = false;
+      // Kök Zehri: süresi gelen kareler kurur
+      for (let i = 0; i < wither.length; i++) if (wither[i] && G.time >= wither[i]) removeTile(G, i);
+      G.flags.vineAnger = Vines.anger(G);
+      G.flags.night = Vines.night(G);
       // Sarmaşığa değen binalar çürür
       for (const b of G.buildings) {
         if (b.hp <= 0 || !Vines.touches(G, b)) { if (b.data) b.data.vineWarned = false; continue; }
@@ -276,10 +423,12 @@
       });
       drawHover(ctx, G);
     },
+    drawUI(ctx, G) { drawOverlay(ctx, G); },
     onClick(G, info) {
       if (G.ui.buildMode || info.button !== 0) return false;
       if (!Vines.has(G, info.tx, info.ty)) return false;
-      Vines.prune(G, info.tx, info.ty);
+      if (Vines.isRoot(G, info.tx, info.ty)) Vines.poison(G, info.tx, info.ty);
+      else Vines.prune(G, info.tx, info.ty);
       return true;
     },
   });

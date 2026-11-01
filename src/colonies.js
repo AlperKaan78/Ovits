@@ -3,6 +3,11 @@
 // Eklem bacaklı koloniler: dolaşma, saldırılınca karşılık verme, av, Kitin,
 // bayılma, nöro-çip ile yakalama ve kraliçe. Tasarım: GDD bölüm 8. Sözleşme: docs/CONTRACT.md
 // ============================================================
+// Koloni türleri (CONFIG.colonies.types):
+//  - Taşkabuk: kalın kabuklu, yavaş, dayanıklı.
+//  - Yaprakçı: hızlı, sarmaşığı yiyerek temizler (vahşiyken de, çiplenince de).
+// Toplayıcılar küçük gruplar halinde gezer; canı azalınca yuvaya kaçar, yuvada iyileşir.
+// Bir koloni çok avlanırsa (overHunt) öfkesi çok daha uzun sürer.
 // Kişi 1 ile bağlantılar:
 //  - Askerler/taretler Colonies.hostileMembers(G) listesini hedef alır.
 //  - Colonies.hunt bir askere u.huntTarget = member.id yazar; asker önce o bireye gitmeli.
@@ -15,15 +20,28 @@
   const cc = (G) => G.cfg.colonies;
   const isHostile = (G, col) => col.hostileUntil > G.time;
   const active = (m) => m.hp > 0 && m.state !== 'fainted' && m.state !== 'chipped';
+  const typeOf = (G, col) => cc(G).types[col.type];
   Colonies.colonyOf = (G, member) => G.colonies.find((c) => c.members.includes(member));
+  Colonies.typeOf = (G, col) => typeOf(G, col);
+
+  // Koloninin öfke süresi: aşırı avlanmış koloni çok daha uzun kızgın kalır
+  const hostileTimeFor = (G, col) => cc(G).hostileTime * (col.overHunted ? cc(G).overHunt.hostileMul : 1);
+  function anger(G, col) { col.hostileUntil = Math.max(col.hostileUntil, G.time + hostileTimeFor(G, col)); }
 
   function makeMember(G, col, role, x, y) {
     const d = role === 'kralice' ? cc(G).kralice : cc(G)[role];
-    return {
-      id: Game.newId(), role, x, y, hp: d.hp, maxHp: d.hp, lastHp: d.hp,
+    const hp = Math.round(d.hp * (role === 'kralice' ? 1 : typeOf(G, col).hpMul));
+    const m = {
+      id: Game.newId(), role, x, y, hp, maxHp: hp, lastHp: hp,
       state: 'wander', tx: x, ty: y, wanderT: Math.random() * 3, faintT: 0, reserved: false,
       dir: Math.random() * Math.PI * 2, step: Math.random() * 10, attackTarget: null, colonyId: col.id,
+      eatT: 0,
     };
+    if (role === 'toplayici') { // grup içindeki yeri
+      m.group = col.nextGroup++ % cc(G).toplayici.groups;
+      m.ox = (Math.random() - 0.5) * 2.4; m.oy = (Math.random() - 0.5) * 2.4;
+    }
+    return m;
   }
 
   function roamPoint(G, col) {
@@ -68,7 +86,7 @@
   Colonies.hunt = function (G, member) {
     const col = Colonies.colonyOf(G, member);
     if (!col || !active(member) || member.role === 'kralice') return false;
-    col.hostileUntil = G.time + cc(G).hostileTime;
+    anger(G, col);
     col.members.forEach((m) => (m.hunted = false));
     member.hunted = true;
     // En yakın boştaki askerleri bu bireye yönlendir (city.js asker davranışı u.huntTarget'a bakar)
@@ -78,7 +96,7 @@
       .slice(0, cc(G).huntSoldiers);
     soldiers.forEach((s) => (s.huntTarget = member.id));
     Game.msg(G, soldiers.length
-      ? `${soldiers.length} asker avlanmaya gidiyor. Koloni ${cc(G).hostileTime} sn boyunca saldırgan!`
+      ? `${soldiers.length} asker avlanmaya gidiyor. ${col.ad} kolonisi ${Math.round(hostileTimeFor(G, col))} sn boyunca saldırgan!`
       : 'Avlanacak boşta asker yok! Koloni yine de saldırganlaştı.', '#e74c3c');
     return true;
   };
@@ -126,12 +144,13 @@
       col.captured = true;
       col.members.slice().forEach((m) => { if (m !== member && m.hp > 0) convert(G, col, m); });
       member.state = 'chipped'; member.reserved = false;
-      Game.msg(G, `KRALİÇE ÇİPLENDİ! Koloni ${col.id} artık senin.`, '#e67e22');
+      Game.msg(G, `KRALİÇE ÇİPLENDİ! ${col.ad} kolonisi artık senin.`, '#e67e22');
       G.over = 'win';
       return;
     }
     convert(G, col, member);
-    Game.msg(G, member.role === 'toplayici' ? 'Bir toplayıcı çiplendi: artık taşıyıcın.' : 'Bir muhafız çiplendi: artık savaşçın.', '#e67e22');
+    Game.msg(G, (member.role === 'toplayici' ? `Bir ${col.ad} toplayıcısı çiplendi: artık taşıyıcın.` : `Bir ${col.ad} muhafızı çiplendi: artık savaşçın.`) +
+      (typeOf(G, col).eatsVine ? ' Üstünden geçtiği sarmaşığı yer.' : ''), '#e67e22');
   };
 
   function convert(G, col, m) {
@@ -145,24 +164,32 @@
   }
 
   // ---------- Davranış ----------
+  function countKill(G, col) {
+    G.res.kitin += 1; col.kills += 1;
+    if (!col.overHunted && col.kills >= cc(G).overHunt.kills) {
+      col.overHunted = true; anger(G, col);
+      Game.msg(G, `${col.ad} kolonisi aşırı avlandı! Artık çok daha uzun süre öfkeli kalacak.`, '#e74c3c');
+    }
+  }
+
   function onDown(G, col, m) {
     // Can bitti ya da bayılma eşiğinin altına indi
     if (G.research.done.kitinAgi && m.role !== 'kralice') {
       m.state = 'fainted'; m.hp = Math.max(1, m.hp); m.faintT = cc(G).faintTime;
       m.hunted = false; m.attackTarget = null;
-      G.res.kitin += 1; col.kills += 1;
+      countKill(G, col);
       Game.msg(G, `Bir birey bayıldı (+1 Kitin). ${G.research.done.noroCip ? 'Tıklayıp çipleyebilirsin.' : ''}`, '#9be7a1');
     } else {
       m.hp = 0;
       col.members = col.members.filter((x) => x !== m);
-      G.res.kitin += 1; col.kills += 1;
+      countKill(G, col);
       Game.msg(G, '+1 Kitin. Bu koloniyi çiplemek artık daha kolay.', '#9be7a1');
     }
   }
 
   function updateMember(G, col, m, dt) {
     const c = cc(G);
-    const d = m.role === 'kralice' ? c.kralice : c[m.role];
+    const d = m.role === 'kralice' ? c.kralice : c[m.role], typ = typeOf(G, col), speed = (d.speed || 0) * typ.speedMul;
 
     // Bayılma / ölüm kontrolü
     if (m.state !== 'fainted' && m.state !== 'chipped' && m.role !== 'kralice') {
@@ -175,8 +202,8 @@
     if (m.hp < m.lastHp - 0.01 && m.state !== 'fainted') {
       const near = playerTargets(G).some((t) => { const p = posOf(t); return Game.dist(p.x, p.y, m.x, m.y) < c.aggroRadius + 2; });
       if (near && !isHostile(G, col)) {
-        col.hostileUntil = G.time + c.hostileTime;
-        Game.msg(G, `Koloni ${col.id} saldırıya uğradı ve karşılık veriyor!`, '#e74c3c');
+        anger(G, col);
+        Game.msg(G, `${col.ad} kolonisi saldırıya uğradı ve karşılık veriyor!`, '#e74c3c');
       }
     }
     m.lastHp = m.hp;
@@ -189,6 +216,23 @@
       return;
     }
     if (m.role === 'kralice') return; // yuvasından çıkmaz
+
+    // Yuvada iyileşme
+    const qx = col.queen.x + 0.5, qy = col.queen.y + 0.5, atNest = Game.dist(m.x, m.y, qx, qy) < c.healRadius;
+    if (atNest && m.state !== 'attack') m.hp = Math.min(m.maxHp, m.hp + c.healPerSec * dt);
+
+    // Kaçma: canı azalan toplayıcı yuvaya koşar, iyileşince geri döner
+    if (m.role === 'toplayici') {
+      if (m.state !== 'flee' && m.hp < m.maxHp * c.toplayici.fleeBelow) m.state = 'flee';
+      if (m.state === 'flee') {
+        if (m.hp >= m.maxHp * 0.9) m.state = 'wander';
+        else {
+          if (!atNest) { m.dir = Math.atan2(qy - m.y, qx - m.x); Game.moveTo(m, qx, qy, speed * 1.25, dt); m.step += dt * 14; }
+          m.lastHp = m.hp;
+          return;
+        }
+      }
+    }
 
     // Saldırı hedefi seç
     const hostile = isHostile(G, col);
@@ -211,26 +255,49 @@
       const p = posOf(target);
       const reach = d.range + (target.size ? target.size / 2 : 0);
       const dd = Game.dist(p.x, p.y, m.x, m.y);
-      if (dd > reach) { m.dir = Math.atan2(p.y - m.y, p.x - m.x); Game.moveTo(m, p.x, p.y, d.speed * 1.3, dt); m.step += dt * 12; }
+      if (dd > reach) { m.dir = Math.atan2(p.y - m.y, p.x - m.x); Game.moveTo(m, p.x, p.y, speed * 1.3, dt); m.step += dt * 12; }
       else target.hp -= d.dps * dt;
       return;
     }
 
-    // Dolaşma
-    m.wanderT -= dt;
-    if (m.wanderT <= 0) {
-      const p = m.role === 'muhafiz' ? guardPoint(G, col) : roamPoint(G, col);
-      m.tx = p.x; m.ty = p.y; m.wanderT = 3 + Math.random() * 5;
+    // Dolaşma: muhafızlar yuva çevresinde, toplayıcılar grubunun hedef noktası çevresinde
+    if (m.role === 'muhafiz') {
+      m.wanderT -= dt;
+      if (m.wanderT <= 0) { const p = guardPoint(G, col); m.tx = p.x; m.ty = p.y; m.wanderT = 3 + Math.random() * 5; }
+    } else {
+      const gp = col.groups[m.group];
+      m.tx = Math.max(0.5, Math.min(G.map.w - 0.5, gp.x + m.ox)); m.ty = Math.max(0.5, Math.min(G.map.h - 0.5, gp.y + m.oy));
     }
     if (Game.dist(m.x, m.y, m.tx, m.ty) > 0.1) {
       m.dir = Math.atan2(m.ty - m.y, m.tx - m.x);
-      Game.moveTo(m, m.tx, m.ty, d.speed * 0.6, dt);
+      Game.moveTo(m, m.tx, m.ty, speed * 0.6, dt);
       m.step += dt * 8;
-    }
+    } else if (typ.eatsVine) eatVine(G, m, typ, dt);
+    else m.dir += Math.sin(G.time * 2 + m.id) * dt; // dururken etrafı koklar
+  }
+
+  // Yaprakçı: durduğu karedeki sarmaşığı yavaşça yer
+  function eatVine(G, e, typ, dt) {
+    if (!(window.Vines && Vines.has && Vines.clear)) return;
+    const tx = Math.floor(e.x), ty = Math.floor(e.y);
+    if (!Vines.has(G, tx, ty)) { e.eatT = 0; return; }
+    e.eatT = (e.eatT || 0) + dt;
+    e.step = (e.step || 0) + dt * 3;
+    if (e.eatT >= typ.eatTime) { e.eatT = 0; Vines.clear(G, tx, ty); }
   }
 
   function updateColony(G, col, dt) {
     const c = cc(G);
+    // Toplayıcı gruplarının ortak hedefi; Yaprakçılar sarmaşıklı karelere yönelmeyi sever
+    col.groups.forEach((gp) => {
+      gp.t -= dt;
+      if (gp.t > 0) return;
+      let p = roamPoint(G, col);
+      if (typeOf(G, col).eatsVine && window.Vines && Vines.has) {
+        for (let k = 0; k < 6 && !Vines.has(G, Math.floor(p.x), Math.floor(p.y)); k++) p = roamPoint(G, col);
+      }
+      gp.x = p.x; gp.y = p.y; gp.t = c.toplayici.groupMove * (0.7 + Math.random() * 0.6);
+    });
     col.members.slice().forEach((m) => updateMember(G, col, m, dt));
     // Kraliçe zamanla yeni toplayıcı yumurtlar (eksik varsa)
     col.spawnT += dt;
@@ -345,7 +412,7 @@
   function drawBug(ctx, G, m, col) {
     const T = G.map.tile, colors = G.cfg.colors, px = m.x * T, py = m.y * T;
     const hostile = isHostile(G, col) || m.state === 'attack';
-    const fill = m.state === 'fainted' ? colors.bocekBayilmis : hostile ? colors.bocekDusman : colors.bocekNotr;
+    const fill = m.state === 'fainted' ? colors.bocekBayilmis : hostile ? colors.bocekDusman : typeOf(G, col).color;
     const L = drawBugBody(ctx, G, {
       x: m.x, y: m.y, dir: m.role === 'kralice' ? -Math.PI / 2 : m.dir, step: m.step, role: m.role,
       fill, fainted: m.state === 'fainted', attacking: m.state === 'attack',
@@ -353,7 +420,7 @@
 
     if (m.role === 'kralice') {
       ctx.fillStyle = colors.kraliceEtiket; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('♛ KRALİÇE ' + col.id, px, py - L * 1.6 - 6); ctx.textAlign = 'left';
+      ctx.fillText('♛ ' + col.ad + ' Kraliçesi', px, py - L * 1.6 - 6); ctx.textAlign = 'left';
     }
     if (m.state === 'fainted') {
       ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif';
@@ -442,6 +509,10 @@
       x: u.x, y: u.y, dir: u._dir, step: u._step, role: u.kind === 'savasci' ? 'muhafiz' : 'toplayici',
       fill: u.kind === 'savasci' ? colors.savasci : colors.tasiyici,
     });
+    if (u.eatT > 0) { // yemek yerken küçük yaprak kırıntıları
+      ctx.fillStyle = colors.vineLeaf;
+      for (let k = 0; k < 3; k++) { const a = G.time * 4 + k * 2.1; ctx.fillRect(u.x * T + Math.cos(a) * L, u.y * T + Math.sin(a) * L, 2, 2); }
+    }
     // sırtındaki çip ışığı
     ctx.fillStyle = colors.arastirma; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(G.time * 6 + u.id);
     ctx.beginPath(); ctx.arc(u.x * T, u.y * T, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
@@ -453,15 +524,29 @@
     init(G) {
       const c = cc(G);
       c.list.forEach((def) => {
-        const col = { id: def.id, queen: { x: def.queen.x, y: def.queen.y }, hostileUntil: 0, kills: 0, members: [], spawnT: 0, captured: false };
+        const typ = c.types[def.type];
+        const col = {
+          id: def.id, type: def.type, ad: typ.ad, queen: { x: def.queen.x, y: def.queen.y },
+          hostileUntil: 0, kills: 0, overHunted: false, members: [], spawnT: 0, captured: false, nextGroup: 0, groups: [],
+        };
+        for (let g = 0; g < c.toplayici.groups; g++) { const p = roamPoint(G, col); col.groups.push({ x: p.x, y: p.y, t: Math.random() * c.toplayici.groupMove }); }
         col.members.push(makeMember(G, col, 'kralice', def.queen.x + 0.5, def.queen.y + 0.5));
         for (let i = 0; i < c.muhafiz.count; i++) { const p = guardPoint(G, col); col.members.push(makeMember(G, col, 'muhafiz', p.x, p.y)); }
-        for (let i = 0; i < c.toplayici.count; i++) { const p = roamPoint(G, col); col.members.push(makeMember(G, col, 'toplayici', p.x, p.y)); }
+        for (let i = 0; i < c.toplayici.count; i++) {
+          const m = makeMember(G, col, 'toplayici', 0, 0), gp = col.groups[m.group];
+          m.x = gp.x + m.ox; m.y = gp.y + m.oy; col.members.push(m);
+        }
         G.colonies.push(col);
       });
     },
     update(G, dt) {
       G.colonies.forEach((col) => updateColony(G, col, dt));
+      // Çiplenmiş Yaprakçılar da üstünden geçtikleri sarmaşığı yer
+      G.units.forEach((u) => {
+        if (!u.fromColony || u.hp <= 0) return;
+        const col = G.colonies.find((cl) => cl.id === u.fromColony);
+        if (col && typeOf(G, col).eatsVine) eatVine(G, u, typeOf(G, col), dt);
+      });
       // Seçili birey artık yoksa seçimi bırak
       const sel = G.ui.selected;
       if (sel && sel.type === 'member' && !G.colonies.some((c) => c.members.includes(sel.member))) G.ui.selected = null;
