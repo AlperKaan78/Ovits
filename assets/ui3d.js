@@ -74,7 +74,7 @@
     text(ctx, 'Öz ' + Math.floor(r.oz || 0) + '   Taş ' + Math.floor(r.tas || 0) + '   Kitin ' + Math.floor(r.kitin || 0), 16, 53);
     if(G.ui.networkStatus)text(ctx,G.ui.networkStatus,Math.max(295,w*.3),72,'#98d2b5',11);
     if(r.lif!=null||r.ozsu!=null)text(ctx,'Mor Lif '+Math.floor(r.lif||0)+' · Azur Özsu '+Math.floor(r.ozsu||0),Math.max(295,w*.3),53,'#92c9c8',12);
-    text(ctx, 'Meteor ' + time(flags.nextWaveIn) + '   Akın ' + time(flags.nextRaidIn), Math.max(270, w * .43), 25, colors.muted, 12);
+    text(ctx, 'Meteor ' + time(flags.nextWaveIn) + '   Akın ' + (G.options?.raiders===false?'Kapalı':time(flags.nextRaidIn)), Math.max(270, w * .43), 25, colors.muted, 12);
     button(ctx, G.paused ? 'Devam' : 'Duraklat', w - 205, 41, 105, 29, !G.ui.network, () => { G.paused = !G.paused; });
     button(ctx, (G.speed || 1) + '× hız', w - 92, 41, 80, 29, !G.ui.network, () => { G.speed = G.speed === 3 ? 1 : (G.speed || 1)+1; });
     const buildings = Object.entries(config().buildings || {}).filter(([id]) => id !== 'merkez');
@@ -89,6 +89,7 @@
     const mini=minimap(ctx,G,w,h,bottom),rosterBottom=roster(ctx,G);
     const soundReady=G.ui.soundReady;
     button(ctx,G.ui.soundMuted?'Ses: kapalı':soundReady?'Ses: açık':'Sesi etkinleştir',w-342,7,120,28,typeof G.ui.toggleSound==='function',()=>G.ui.toggleSound(!soundReady));
+    button(ctx,'Yeni oyun',w-590,7,110,28,true,()=>location.reload());
     if(window.Civilization)button(ctx,'Tüm işçiler merkeze dön',246,84,215,28,true,()=>{G.ui.cancelTasks?.(G.units.filter(u=>u.kind==='isci'));Civilization.recall(G);});
     const selected = G.ui.selected;
     if(window.Civilization){button(ctx,'Bayrak seç',w-470,7,120,28,true,()=>G.ui.flagMenu=!G.ui.flagMenu);if(G.ui.flagMenu){const fx=w-470,fy=83;panel(ctx,fx,fy,165,144);regions.push({x:fx,y:fy,w:165,h:144});[['#c9773a','☀ Bakır Güneş'],['#388fc4','◆ Mavi Kristal'],['#799c44','♣ Yeşil Yaprak'],['#aa64bd','✦ Mor Yıldız']].forEach(([flag,name],i)=>button(ctx,name,fx+5,fy+5+i*34,155,29,true,()=>{Civilization.setFlag(G,flag);G.ui.flagMenu=false;}));}}

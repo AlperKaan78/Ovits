@@ -20,3 +20,11 @@ Tek oyunculu eski giriş ayrı kalır: `node assets/serve-preview.cjs` ardından
 - Laboratuvarda çalışan her bilim insanı araştırma hızına %50 ekler ve yeni araştırma maliyetini %5 düşürür (en fazla %50 indirim). İptal iadeleri o araştırma için gerçekten ödenen bedelden hesaplanır.
 - Çekim Kulesi meteor çeker; Taret düşmana ateş eder. Ayrı roller korunur. Duvar fiziksel engeldir; Savunma Kulesi daha uzun menzilli saldırı yapar.
 - Mini harita sol alttadır. İnşa düğmeleri ekran genişliğine göre satırlara ayrılır. Seçili birimin sağ paneli tekerlekle kaydırılır; harita üzerinde tekerlek kamerayı yakınlaştırır.
+
+## Yeni oyun, mod seçimi ve yerel sürümler
+
+`oyunu-ac.bat` güncel başlangıç menüsünü açar. Çevrimdışı mod yalnız tarayıcıdaki simülasyonu çalıştırır; çevrimiçi mod aynı Wi-Fi sunucusuna bağlanır. Akıncılar varsayılan olarak kapalıdır; yeni oyun formunda işaretlenirse etkinleşir. Mevcut çevrimiçi odada bu ayarı ilk oyuncu belirler, katılanlar aynı ayarı kullanır. Yerel önizleme sunucusunda yalnız çevrimdışı mod açılır; iki modu birlikte sunmak için `oyunu-ac.bat` veya LAN sunucusunu kullanın.
+
+Ses her yeni oyunda kapalı başlar; ses düğmesiyle açılır. Yeni oyun düğmesi başlangıç menüsüne döner. Başlatmayı onaylayınca bu sekmenin önceki çevrimiçi medeniyeti, birimleri ve binaları temizlenir; diğer oyuncuların medeniyetleri korunur. Son medeniyet de ayrılmışsa dünya ve oda seçenekleri sıfırlanır. Kalıcı oyun kaydı bu sürümde yoktur. Önceki bölümdeki yenilemeyle otomatik devam davranışı bu yeni başlangıç akışıyla değiştirilmiştir; bağlantının geçici kopmasında aynı oyuna otomatik bağlanma sürer.
+
+Kaynak dosya yedekleri oyun oturumundan ayrıdır. `D:\challenge\deneme2`, `deneme3` vb. klasörler tam proje kopyasıdır; Yeni oyun bunları silmez. `tools/yerel-surum.ps1` her teslimde bir sonraki boş klasörü oluşturur, bütün dosyaların SHA256 eşleşmesini denetler ve sürüm/dosya listesi yazar. Git geçmişi klasörü `.git` kopyalanmaz; çalışan oyun, kod, görseller, belgeler ve testler kopyalanır. Her kopyadaki `oyunu-ac.bat` o kopyanın kendi sunucusunu farklı portta açar; `deneme3` için port 4203'tür.

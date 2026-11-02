@@ -1,7 +1,7 @@
 // Original synthesized sound. No recordings or licensed sound assets.
 export function createAudio(){
-  let context=null,master=null,muted=false,impacts=0;
-  function unlock(){if(!context){const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return Promise.resolve(false);context=new Audio();master=context.createGain();master.gain.value=.55;master.connect(context.destination);}return context.resume().then(()=>true).catch(()=>false);}
+  let context=null,master=null,muted=true,impacts=0;
+  function unlock(){if(!context){const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return Promise.resolve(false);context=new Audio();master=context.createGain();master.gain.value=muted?0:.55;master.connect(context.destination);}return context.resume().then(()=>true).catch(()=>false);}
   function impact(big=false,distance=0){if(!context||context.state!=='running'||muted)return false;
     const now=context.currentTime,duration=big?2.2:1.5,volume=Math.max(.12,1-distance/90);impacts++;
     const buffer=context.createBuffer(1,Math.ceil(context.sampleRate*duration),context.sampleRate),data=buffer.getChannelData(0);let last=0;

@@ -3,14 +3,17 @@ import {createGameView} from './three-game.js';
 import {createTasks} from './tasks3d.js';
 import {createAudio} from './audio3d.js';
 import {connectLan} from './lan-client.js';
+import {chooseGame} from './start-menu.js';
 const failed=new Set();
 function fail(name,error){if(failed.has(name))return;failed.add(name);console.error(name,error);const el=document.querySelector('#error');el.style.display='block';el.textContent=name+': '+error.message;}
 try{
+  const options=await chooseGame();
   const G=Game.G=Game.newState();for(const module of Game.modules)module.init?.(G);
+  G.options={raiders:options.raiders};G.ui.mode=options.mode;
   Civilization.ensure(G);
-  const network=await connectLan(G);
-  if(!network)Civilization.setFlag(G,'#c9773a');
-  const tasks=createTasks(G),audio=createAudio();G.ui.cancelTasks=units=>tasks.release(units);G.ui.toggleSound=async(enableOnly=false)=>{await audio.unlock();if(!enableOnly||audio.muted)audio.toggle();G.ui.soundMuted=audio.muted;};G.ui.soundMuted=false;
+  const network=options.mode==='online'?await connectLan(G,options):null;
+  if(!network)Civilization.setFlag(G,options.flag);
+  const tasks=createTasks(G),audio=createAudio();G.ui.cancelTasks=units=>tasks.release(units);G.ui.toggleSound=async(enableOnly=false)=>{await audio.unlock();if(!enableOnly||audio.muted)audio.toggle();G.ui.soundMuted=audio.muted;};G.ui.soundMuted=true;
   window.addEventListener('pointerdown',()=>audio.unlock(),{passive:true});window.addEventListener('keydown',()=>audio.unlock(),{passive:true});
   Game.msg(G,'3B görsel katmanı açıldı. Ekip modülleri ortak sözleşmeyle yükleniyor.','#d2bddc');
   const view=createGameView({canvas:document.querySelector('#world'),uiCanvas:document.querySelector('#hud'),onError:e=>fail('UI',e),onImpact:me=>audio.impact(me.type==='dev',Math.hypot(me.x-G.map.w/2-target.x,me.y-G.map.h/2-target.z)),

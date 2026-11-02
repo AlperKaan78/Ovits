@@ -132,6 +132,7 @@
     name: 'enemies',
     init(G) { raidNo = 0; warned = false; fx = []; G.flags.nextRaidIn = ec(G).firstRaid; },
     update(G, dt) {
+      if(G.options?.raiders===false){G.flags.nextRaidIn=null;return;}
       const c = ec(G);
       G.flags.nextRaidIn -= dt;
       if (!warned && G.flags.nextRaidIn <= c.warnTime) { warned = true; Game.msg(G, `Kül Göçebeleri ${c.warnTime} sn içinde akın edecek! Askerlerini hazırla.`, '#ff9f6b'); }

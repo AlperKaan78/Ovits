@@ -85,3 +85,13 @@ Yeni kapsam: dengeli cinsiyet ataması, taş yatağı zorunluluğu, inşaat emri
 Bu turda kullanıcının geniş kapsamlı mekanik talebi doğrultusunda ortak `src/city.js`, `src/research.js`, `src/colonies.js`, `src/enemies.js` ve `src/meteors.js` dosyalarına da sınırlı entegrasyon yapıldı: yapı/birim geliştirmeleri, haricî görev desteği, indirimli gerçek bedel iadeleri ve LAN kaynak/araştırma sahipliği. Yeni 3B mekanikler `civilization.js` ile etkinleşir; eski `index.html` bunları yüklemez. Sürekli hasat davranışı 3B girişe özgüdür.
 
 LAN sınırları: 4 oyunculu yerel oda, PvP yok, hesap/kalıcı kayıt yok, sunucu kapanınca sıfırlanır. Kullanım `assets/LAN-README.md` içinde. Bu sürümün uzun süreli çok oyunculu denge ayarı ayrıca oynanış gerektirir.
+
+## Sessiz başlangıç, oyun modları ve sürüm kopyaları — 2 Kasım 2026
+
+Güncel Node sonucu **41/41 başarılı**. Yeni testler kapalı akıncılarla akın oluşmamasını, açık seçenekle akın oluşmasını, ses kilidi açıldıktan sonra bile açıkça etkinleştirilene kadar sessiz kalmayı ve yeni oyun temizliğini doğrular. LAN temizliği yalnız eski medeniyeti kaldırır, diğer oyuncuyu korur, yeniden kullanılan başlangıç alanını boş seçer ve son oyuncu ayrılınca dünya/ayarları sıfırlar.
+
+Tarayıcı regresyonu başlangıç formunda çevrimdışı modu ve kapalı akıncı seçimini kullanır; ilk oyunda sesin kapalı olduğunu doğrular, meteor sesi kontrolü için ses düğmesini açıkça etkinleştirir. İki oyunculu senaryoda yeni oyun başlatılması eski medeniyetin silinip yenisinin oluştuğunu ve diğer oyuncunun korunmasını kontrol eder. Bu turda eski otomatik devam davranışı bilinçli Yeni oyun akışıyla değiştirilmiştir.
+
+`deneme2` önceki sürümün tam kopyası olarak 82 dosyayla oluşturulmuş ve hash karşılaştırmasıyla doğrulanmıştır. Yeni sürüm teslimde ayrı klasöre kopyalanır; önceki kopyalar değiştirilmez. `.git` çalışma geçmişi bu dağıtım kopyalarına dahil edilmez.
+
+Son gerçek tarayıcı turu başarılı: çevrimdışı başlangıç, ses açma/kapama, iki çevrimiçi medeniyet, Yeni oyunla eski medeniyet temizliği ve diğer oyuncunun korunması geçti. JavaScript sayfa hatası yok.
